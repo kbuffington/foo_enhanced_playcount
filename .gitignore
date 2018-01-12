@@ -1,4 +1,4 @@
 Debug/
 Release/
 ipch/
-.sdf
+*.sdf
