@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "lastfm.h"
 #include <vector>
 #include <sstream>
 
@@ -14,6 +15,8 @@ metadb_index_client_impl - turns track info into a database key to which our dat
 init_stage_callback_impl - initializes ourselves at the proper moment of the app lifetime.
 metadb_display_field_provider_impl - publishes %foo_sample_rating% via title formatting.
 */
+
+using namespace foo_enhanced_playcount;
 
 namespace {
 	
@@ -80,7 +83,11 @@ namespace {
 
 	static service_factory_single_t<init_stage_callback_impl> g_init_stage_callback_impl;
 
-	static const t_filetimestamp timestamp_invalid = 0;
+	struct record_t {
+		int version = 1;
+		t_filetimestamp *fbTimes;
+		t_filetimestamp *lastfmTimes;
+	};
 
 	static std::vector<t_filetimestamp> playtimes_get(metadb_index_hash hash, static_api_ptr_t<metadb_index_manager> & api) {
 		std::vector<t_filetimestamp> playTimes;
@@ -121,9 +128,7 @@ namespace {
 
 	class my_playback_statistics_collector : public playback_statistics_collector {
 	public:
-		void on_item_played(metadb_handle_ptr p_item) {
-			file_info_impl p_info;
-			
+		void on_item_played(metadb_handle_ptr p_item) {			
 			if (playback_statistics_script.is_empty()) {
 				static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(playback_statistics_script, "%first_played%~%last_played%");
 			}
@@ -160,21 +165,6 @@ namespace {
 			t_uint64 jsValue = (value - 116444736000000000) / 10000000;	// convert to JS timestamp
 			jsValue *= 1000;	// strip out ms
 			os << jsValue;
-
-#if 0
-			char url[512];
-			sprintf(url, "%s&user=MordredKLB&artist=%s&api_key=%s&format=json", lastfmApiBase, "metallica", lastfmApiKey);
-
-			static_api_ptr_t<http_client> http;
-			auto request = http->create_request("GET");
-			request->add_header("User-Agent", "foo_enhanced_playback_statistics/" COMPONENT_VERSION);
-
-			abort_callback &callback = abort_callback_dummy();
-			auto response = request->run(url, callback);
-			// Get string
-			pfc::string8 buffer;
-			response->read_string_raw(buffer, callback);
-#endif
 		} else {
 			os << value;
 		}
@@ -229,6 +219,7 @@ namespace {
 			metadb_index_hash hash;
 			if (!g_client->hashHandle(handle, hash)) return false;
 			std::vector<t_filetimestamp> playTimes;
+			file_info_impl info;
 
 			switch (index) {
 				case 0:
@@ -246,6 +237,55 @@ namespace {
 					} else {
 						out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, false, true).c_str());
 					}
+
+
+					if (handle->get_info(info)) {
+						pfc::string8 artist;
+						pfc::string8 album;
+						pfc::string8 title;
+						artist = info.meta_get("ARTIST", 0);
+						album = info.meta_get("ALBUM", 0);
+						title = info.meta_get("TITLE", 0);
+						
+						std::vector<t_filetimestamp> playTimes;
+						Lastfm *lfm = new Lastfm();
+						playTimes = lfm->queryLastfm(artist, album, title);
+						
+						std::string str;
+						int idx = 0;
+						for (std::vector<t_filetimestamp>::reverse_iterator rit = playTimes.rbegin(); rit != playTimes.rend(); ++rit, ++idx) {
+							str.append(format_filetimestamp::format_filetimestamp(*rit));
+							//str += t_uint64_to_string(*rit, true);
+							if (idx + 1< playTimes.size()) {
+								str.append(", ");
+							}
+						}
+						FB2K_console_formatter() << str.c_str();
+						
+#if 0
+						titleformat_object::ptr artist_album_title;
+
+						if (artist_album_title.is_empty()) {
+							static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(artist_album_title, "%artist% - %album% - %title%");
+						}
+						pfc::string_formatter p_out;
+
+						//metadb_index_hash hash;
+						//g_client->hashHandle(p_item, hash);
+
+						handle->format_title(NULL, p_out, artist_album_title, NULL);
+						FB2K_console_formatter() << p_out << "  -  " << artist << " - " << album << " - " << title;
+#endif
+
+						//Query *query = new Query();
+						//query->add_apikey();
+						//query->add_param("user", "MordredKLB");
+						//query->add_param("artist", artist);
+						//query->add_param("limit", 1);
+						//query->add_param("format", "json");
+						//query->perform();
+					}
+
 					break;
 				case 2:
 					playTimes = playtimes_get(hash);

@@ -1,20 +1,20 @@
 #pragma once
 
-#if 0
-namespace foo_enhanced_playback_statistics {
+namespace foo_enhanced_playcount {
 	class Query {
 	public:
-		Query(const char *entity, const char *id = "");
-		void add_param(const char *param, const char *value, bool encode = true);
+		Query(const char *method = "user.getartisttracks");
+		void add_param(const char *param, pfc::string8 value, bool encode = true);
 		void add_param(const char *param, int value);
-		t_filetimestamp perform(abort_callback &callback = abort_callback_dummy());
+		void add_apikey();
+		pfc::string8 perform(abort_callback &callback = abort_callback_dummy());
 
 	private:
 		inline char to_hex(char);
-		pfc::string8 url_encode(const char *);
+		pfc::string8 url_encode(pfc::string8 in, bool encodeSpecialChars = false);
 		//TiXmlElement *parse(pfc::string8 &buffer, TiXmlDocument &xml);
 
 		pfc::string8 url;
 	};
 }
-#endif
+
