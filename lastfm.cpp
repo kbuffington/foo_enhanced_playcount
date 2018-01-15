@@ -24,11 +24,16 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(pfc::string8 trackartist, pfc::
 	album << trackalbum;
 	title << tracktitle;
 
+	artist = "Eric Johnson";
+	album = "Up Close";
+	title = "Fatdaddy";
+	user = "joyjoykid";
+
 	std::vector<t_filetimestamp> playTimes;
 	bool done = false;
 	int page = 1;
 
-	while (!done) {
+	while (!done && page <= 5) {	// limit to last 1000 last.fm plays for artist
 		Query *query = new Query();
 		query->add_apikey();
 		query->add_param("user", user);
@@ -49,10 +54,10 @@ bool fieldsEq(pfc::string8 songInfo, const pfc::string8 value) {
 }
 
 bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& playTimes) {
+	t_filetimestamp start = filetimestamp_from_system_timer();
 	Document d;
 	d.Parse(buffer);
 	int count;
-	//std::vector<t_filetimestamp> playTimes;
 
 	if (!d.HasMember("artisttracks"))
 		return true;
@@ -74,15 +79,16 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 					pfc::string8 lfmAlbum = static_cast<pfc::string8>(al["#text"].GetString());
 					pfc::string8 lfmTitle = static_cast<pfc::string8>(name.GetString());
 
-					str << lfmArtist << " - " << lfmAlbum << " - " << lfmTitle;
+					//str << lfmArtist << " - " << lfmAlbum << " - " << lfmTitle;
 
-					if (ar.IsObject() && al.IsObject() && 
+					if (ar.IsObject() && al.IsObject() &&
 						fieldsEq(artist, lfmArtist) &&
 						fieldsEq(album, lfmAlbum) &&
 						fieldsEq(title, lfmTitle)) {
 
 						const Value& dt = track["date"];
 						const char * date;
+#if 0
 						if (dt.IsObject()) {
 							date = dt["uts"].GetString();
 							str += " - ";
@@ -91,9 +97,15 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 						time *= 1000;
 						FB2K_console_formatter() << "FOUND: " << str << time;
 						time *= 10000;
+#endif
+						if (dt.IsObject()) {
+							date = dt["uts"].GetString();
+						}
+						t_filetimestamp time = atoi(date);
+						time *= 10000000;
 						time += 116444736000000000;
 						playTimes.insert(playTimes.begin(), time);
-												
+
 					} else {
 						//FB2K_console_formatter() << "Not found: " << str;
 					}
@@ -101,6 +113,8 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 			}
 		}
 	}
+	t_filetimestamp end = filetimestamp_from_system_timer();
+	FB2K_console_formatter() << "Time Elapsed: " << ((float)(end - start)) / 10000000 << " seconds";
 
 	return count < 200;
 }
