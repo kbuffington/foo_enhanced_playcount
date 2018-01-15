@@ -10,8 +10,8 @@ namespace foo_enhanced_playcount {
 		std::vector<t_filetimestamp> queryLastfm(pfc::string8 trackartist, pfc::string8 trackalbum, pfc::string8 tracktitle);
 
 	private:
-		std::vector<t_filetimestamp> parseJson(const pfc::string8 buffer);
-		//bool fieldsEq(const pfc::string8 songInfo, pfc::string8 value);
+		//std::vector<t_filetimestamp> parseJson(const pfc::string8 buffer);
+		bool parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& playTimes);
 
 		pfc::string8 artist;
 		pfc::string8 album;

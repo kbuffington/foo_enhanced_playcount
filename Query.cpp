@@ -24,7 +24,7 @@ char Query::to_hex(char c) {
 //}
 
 void Query::add_param(const char *param, pfc::string8 value, bool encode) {
-	url << "&" << param << "=" << (encode ? url_encode(value) : value);
+	url << "&" << param << "=" << (encode ? url_encode(value, true) : value);
 }
 
 void Query::add_param(const char *param, int value) {
@@ -40,10 +40,8 @@ void Query::add_apikey() {
 pfc::string8 Query::url_encode(pfc::string8 in, bool encodeSpecialChars) {
 	pfc::string8 out;
 	out.prealloc(in.length() * 3 + 1);
-	//out.prealloc(strlen(in) * 3 + 1);
 
-	if (encodeSpecialChars) {
-
+	if (encodeSpecialChars) {	// last.fm needs strings double encoded
 		for (register const char *tmp = in; *tmp != '\0'; tmp++) {
 			auto c = static_cast<unsigned char>(*tmp);
 			if (isalnum(c)) {
@@ -51,7 +49,8 @@ pfc::string8 Query::url_encode(pfc::string8 in, bool encodeSpecialChars) {
 			} else if (isspace(c)) {
 				out.add_char('+');
 			} else {
-				out.add_char('%');
+				//out.add_char('%');
+				out.add_string("%25");
 				out.add_char(to_hex(c >> 4));
 				out.add_char(to_hex(c % 16));
 			}
@@ -60,6 +59,9 @@ pfc::string8 Query::url_encode(pfc::string8 in, bool encodeSpecialChars) {
 		out << in;
 		out.replace_char(' ', '+', 0);
 		out.replace_string("&", "%2526", 0);
+		out.replace_string(":", "%253A", 0);
+		out.replace_string("%", "%2525", 0);
+		out.replace_string("=", "%253D", 0);
 	}
 
 	return out;

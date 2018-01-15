@@ -19,43 +19,50 @@ Lastfm::Lastfm() {
 	user = "MordredKLB";
 }
 
-//t_filetimestamp* Lastfm::queryLastfm(pfc::string8 trackartist, pfc::string8 trackalbum, pfc::string8 tracktitle) {
-
-#if 1
 std::vector<t_filetimestamp> Lastfm::queryLastfm(pfc::string8 trackartist, pfc::string8 trackalbum, pfc::string8 tracktitle) {
 	artist << trackartist;
 	album << trackalbum;
 	title << tracktitle;
 
-	Query *query = new Query();
-	query->add_apikey();
-	query->add_param("user", user);
-	query->add_param("artist", artist);
-	query->add_param("limit", 200);
-	query->add_param("format", "json");
-	auto buf = query->perform();
+	std::vector<t_filetimestamp> playTimes;
+	bool done = false;
+	int page = 1;
 
-	return parseJson(buf);
+	while (!done) {
+		Query *query = new Query();
+		query->add_apikey();
+		query->add_param("user", user);
+		query->add_param("artist", artist);
+		query->add_param("limit", 200);
+		query->add_param("format", "json");
+		query->add_param("page", page++);
+		auto buf = query->perform();
+
+		done = parseJson(buf, playTimes);
+	}
+
+	return playTimes;
 }
 
 bool fieldsEq(pfc::string8 songInfo, const pfc::string8 value) {
 	return _stricmp(songInfo, value) == 0;
 }
-#endif
 
-std::vector<t_filetimestamp> Lastfm::parseJson(const pfc::string8 buffer) {
+bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& playTimes) {
 	Document d;
 	d.Parse(buffer);
-	std::vector<t_filetimestamp> playTimes;
+	int count;
+	//std::vector<t_filetimestamp> playTimes;
 
 	if (!d.HasMember("artisttracks"))
-		return playTimes;
+		return true;
 	const Value& a = d["artisttracks"];
 	if (a.IsObject()) {
 		if (!a.HasMember("track"))
-			return playTimes;
+			return true;
 		const Value& t = a["track"];
 		if (t.IsArray()) {
+			count = t.Size();
 			for (SizeType i = 0; i < t.Size(); i++) { // rapidjson uses SizeType instead of size_t.
 				const Value& track = t[i];
 				if (track.IsObject()) {
@@ -79,14 +86,13 @@ std::vector<t_filetimestamp> Lastfm::parseJson(const pfc::string8 buffer) {
 						if (dt.IsObject()) {
 							date = dt["uts"].GetString();
 							str += " - ";
-							//str += date;
 						}
 						t_filetimestamp time = atoi(date);
 						time *= 1000;
 						FB2K_console_formatter() << "FOUND: " << str << time;
 						time *= 10000;
 						time += 116444736000000000;
-						playTimes.push_back(time);
+						playTimes.insert(playTimes.begin(), time);
 												
 					} else {
 						//FB2K_console_formatter() << "Not found: " << str;
@@ -96,5 +102,5 @@ std::vector<t_filetimestamp> Lastfm::parseJson(const pfc::string8 buffer) {
 		}
 	}
 
-	return playTimes;
+	return count < 200;
 }

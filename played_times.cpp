@@ -83,14 +83,64 @@ namespace {
 
 	static service_factory_single_t<init_stage_callback_impl> g_init_stage_callback_impl;
 
+#define kCurrVersion   1
+
 	struct record_t {
-		int version = 1;
-		t_filetimestamp *fbTimes;
-		t_filetimestamp *lastfmTimes;
+		unsigned int version = kCurrVersion;
+		int numFoobarPlays = 0;
+		int numLastfmPlays = 0;
+		int unused = 0;			// available for later
+		std::vector<t_filetimestamp> foobarPlaytimes;
+		std::vector<t_filetimestamp> lastfmPlaytimes;
 	};
 
-	static std::vector<t_filetimestamp> playtimes_get(metadb_index_hash hash, static_api_ptr_t<metadb_index_manager> & api) {
+	void copyTimestampsToVector(void *buf, const size_t numElements, std::vector<t_filetimestamp>& v) {
+		t_filetimestamp *tArray;
+		
+		tArray = new t_filetimestamp[numElements];
+		memcpy(tArray, buf, sizeof(t_filetimestamp)* numElements);
+		if (numElements > 1)
+			FB2K_console_formatter() << tArray[0] << ", " << tArray[1];
+		v.insert(v.begin(), tArray, tArray + numElements);
+		delete tArray;
+	}
+
+	static record_t getRecord(metadb_index_hash hash, static_api_ptr_t<metadb_index_manager> & api) {
+		unsigned int buf[10004];
+		int size = api->get_user_data_here(guid_foo_enhanced_playcount_index, hash, &buf, sizeof(buf));
+		t_filetimestamp *tArray;
+		record_t record;
+		int numElements;
+
+		if (buf[0] > 0 && buf[0] < 9) {
+			record.version = buf[0];
+		} else {
+			record.version = 0;
+		}
+
+		switch (record.version) {
+			case 0:
+				numElements = size / sizeof(t_filetimestamp);
+				record.numFoobarPlays = numElements;
+				copyTimestampsToVector(buf, record.numFoobarPlays, record.foobarPlaytimes);
+				record.numLastfmPlays = 0;
+				break;
+			case 1:
+				record.numFoobarPlays = (int) buf[1];
+				record.numLastfmPlays = (int) buf[2];
+				if (record.numFoobarPlays > 0)
+					copyTimestampsToVector(&buf[4], record.numFoobarPlays, record.foobarPlaytimes);
+				if (record.numLastfmPlays > 0)
+					copyTimestampsToVector(&buf[4] + (record.numFoobarPlays * sizeof(t_filetimestamp) / sizeof(int)), record.numLastfmPlays, record.lastfmPlaytimes);
+				break;
+		}
+		
+		return record;
+	}
+
+	static std::vector<t_filetimestamp> playtimes_get(metadb_index_hash hash, static_api_ptr_t<metadb_index_manager> & api, bool last_fm_times) {
 		std::vector<t_filetimestamp> playTimes;
+#if 0
 		t_filetimestamp playTimeArray[1000];
 		int size = api->get_user_data_here(guid_foo_enhanced_playcount_index, hash, &playTimeArray, sizeof(playTimeArray));
 		int numElements = size / sizeof(t_filetimestamp);
@@ -98,20 +148,35 @@ namespace {
 			playTimes.push_back(playTimeArray[i]);
 		}
 		//FB2K_console_formatter() << "[foo_enhanced_playcount]: numElements = " << numElements;
+#else 
+		record_t record = getRecord(hash, api);
+		if (last_fm_times) {
+			// return last.fm's saved times
+			//for (int i = 0; i < record.numLastfmPlays; i++) {
+			//	playTimes.push_back(record.lastfmPlaytimes[i]);
+			//}
+			return record.lastfmPlaytimes;
+		} else {
+			return record.foobarPlaytimes;
+		}
+#endif
 		return playTimes;
 	}
 
-	static std::vector<t_filetimestamp> playtimes_get(metadb_index_hash hash) {
+	static std::vector<t_filetimestamp> playtimes_get(metadb_index_hash hash, bool last_fm_times) {
 		static_api_ptr_t<metadb_index_manager> api;
-		return playtimes_get(hash, api);
+		return playtimes_get(hash, api, last_fm_times);
 	}
 
 	titleformat_object::ptr playback_statistics_script;
 
 	static void playtime_set(metadb_index_hash hash, t_filetimestamp fp, t_filetimestamp lp) {
 		t_filetimestamp time = filetimestamp_from_system_timer();
-		t_filetimestamp playTimeList[1000];
+		time /= 10000000;
+		time *= 10000000;
 		static_api_ptr_t<metadb_index_manager> api;
+#if 0
+		t_filetimestamp playTimeList[1000];
 		size_t size = api->get_user_data_here(guid_foo_enhanced_playcount_index, hash, playTimeList, sizeof(playTimeList));
 		size_t numElements = size / sizeof(t_filetimestamp);
 		int index = numElements;
@@ -123,7 +188,37 @@ namespace {
 		}
 		playTimeList[index++] = time;
 		//FB2K_console_formatter() << "[foo_enhanced_playcount]: numElements = " << numElements << " - updating numElements to " << index << " " << fp;
-		api->set_user_data(guid_foo_enhanced_playcount_index, hash, &playTimeList, sizeof(t_filetimestamp) * index);
+		api->set_user_data(guid_foo_enhanced_playcount_index, hash, &playTimeList, sizeof(t_filetimestamp)* index);
+
+#else
+		record_t record = getRecord(hash, api);
+		record.version = kCurrVersion;
+		
+		if (record.numFoobarPlays == 0 && fp) {	// add first played and last played if this is the first time we've recorded a play for this file
+			record.foobarPlaytimes.push_back(fp);
+			if (fp != lp) {
+				record.foobarPlaytimes.push_back(lp);
+			}
+		}
+		record.foobarPlaytimes.push_back(time);
+
+		record.numFoobarPlays = record.foobarPlaytimes.size();
+
+		unsigned int buf[10004];
+		size_t size = 0;
+		memcpy(buf, &record, 4 * sizeof(int));
+		size += 4;
+		memcpy(buf + size, &record.foobarPlaytimes[0], record.foobarPlaytimes.size() * sizeof t_filetimestamp);
+		size += record.foobarPlaytimes.size() * sizeof t_filetimestamp / sizeof(int);
+
+		if (record.lastfmPlaytimes.size()) {
+			memcpy(buf + size, &record.lastfmPlaytimes[0], record.lastfmPlaytimes.size() * sizeof t_filetimestamp);
+			size += record.lastfmPlaytimes.size() * sizeof t_filetimestamp / sizeof(int);
+		}
+
+		//FB2K_console_formatter() << "[foo_enhanced_playcount]: numElements = " << numElements << " - updating numElements to " << index << " " << fp;
+		api->set_user_data(guid_foo_enhanced_playcount_index, hash, buf, size * sizeof(int));
+#endif
 	}
 
 	class my_playback_statistics_collector : public playback_statistics_collector {
@@ -148,7 +243,31 @@ namespace {
 				fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
 				lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
 			}
-			
+
+			file_info_impl info;
+			if (p_item->get_info(info)) {
+				pfc::string8 artist;
+				pfc::string8 album;
+				pfc::string8 title;
+				artist = info.meta_get("ARTIST", 0);
+				album = info.meta_get("ALBUM", 0);
+				title = info.meta_get("TITLE", 0);
+
+				std::vector<t_filetimestamp> playTimes;
+				Lastfm *lfm = new Lastfm();
+				playTimes = lfm->queryLastfm(artist, album, title);
+
+				std::string str;
+				int idx = 0;
+				for (std::vector<t_filetimestamp>::iterator it = playTimes.begin(); it != playTimes.end(); ++it, ++idx) {
+					str.append(format_filetimestamp::format_filetimestamp(*it));
+					if (idx + 1< playTimes.size()) {
+						str.append(", ");
+					}
+				}
+				FB2K_console_formatter() << str.c_str();
+			}
+
 			//console::printf(p_out);
 			//FB2K_console_formatter() << firstPlayed << " - " << lastPlayed;
 			//FB2K_console_formatter() << format_filetimestamp::format_filetimestamp(fp) << " - " << format_filetimestamp::format_filetimestamp(lp);
@@ -192,53 +311,71 @@ namespace {
 		return str;
 	}
 
-#define kNumFields	3
+	enum provided_fields {
+		PLAYED_TIMES,
+		PLAYED_TIMES_JS,
+		PLAYED_TIMES_RAW,
+
+		PLAYED_TIMES_LASTFM,
+		PLAYED_TIMES_LASTFM_JS,
+
+		MAX_NUM_FIELDS	// always last entry in this enum
+	};
 
 	// Provider of the %foo_sample_rating% field
 	class metadb_display_field_provider_impl : public metadb_display_field_provider {
 	public:
 		t_uint32 get_field_count() {
-			return kNumFields;
+			return MAX_NUM_FIELDS;
 		}
 		void get_field_name(t_uint32 index, pfc::string_base & out) {
-			PFC_ASSERT(index >= 0 && index < kNumFields);
+			PFC_ASSERT(index >= 0 && index < MAX_NUM_FIELDS);
 			switch (index) {
-				case 0:
+				case PLAYED_TIMES:
 					out = "played_times";
 					break;
-				case 1:
+				case PLAYED_TIMES_JS:
 					out = "played_times_js";
 					break;
-				case 2:
+				case PLAYED_TIMES_RAW:
 					out = "played_times_raw";
+					break;
+				case PLAYED_TIMES_LASTFM:
+					out = "played_times_lastfm";
+					break;
+				case PLAYED_TIMES_LASTFM_JS:
+					out = "played_times_lastfm_js";
 					break;
 			}			
 		}
 		bool process_field(t_uint32 index, metadb_handle * handle, titleformat_text_out * out) {
-			PFC_ASSERT(index >= 0 && index < kNumFields);
+			PFC_ASSERT(index >= 0 && index < MAX_NUM_FIELDS);
 			metadb_index_hash hash;
 			if (!g_client->hashHandle(handle, hash)) return false;
 			std::vector<t_filetimestamp> playTimes;
 			file_info_impl info;
 
 			switch (index) {
-				case 0:
-					playTimes = playtimes_get(hash);
+				case PLAYED_TIMES:
+				case PLAYED_TIMES_JS:
+				case PLAYED_TIMES_RAW:
+					playTimes = playtimes_get(hash, false);
 					if (!playTimes.size()) {
 						out->write(titleformat_inputtypes::meta, "[]");
 					} else {
-						out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, true, false).c_str());
+						switch (index) {
+							case PLAYED_TIMES:
+								out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, true, false).c_str());
+								break;
+							case PLAYED_TIMES_JS:
+								out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, false, true).c_str());
+								break;
+							case PLAYED_TIMES_RAW:
+								out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, false, false).c_str());
+								break;
+						}
 					}
-					break;
-				case 1:
-					playTimes = playtimes_get(hash);
-					if (!playTimes.size()) {
-						out->write(titleformat_inputtypes::meta, "[]");
-					} else {
-						out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, false, true).c_str());
-					}
-
-
+#if 0
 					if (handle->get_info(info)) {
 						pfc::string8 artist;
 						pfc::string8 album;
@@ -253,46 +390,27 @@ namespace {
 						
 						std::string str;
 						int idx = 0;
-						for (std::vector<t_filetimestamp>::reverse_iterator rit = playTimes.rbegin(); rit != playTimes.rend(); ++rit, ++idx) {
-							str.append(format_filetimestamp::format_filetimestamp(*rit));
-							//str += t_uint64_to_string(*rit, true);
+						for (std::vector<t_filetimestamp>::iterator it = playTimes.begin(); it != playTimes.end(); ++it, ++idx) {
+							str.append(format_filetimestamp::format_filetimestamp(*it));
 							if (idx + 1< playTimes.size()) {
 								str.append(", ");
 							}
 						}
 						FB2K_console_formatter() << str.c_str();
-						
-#if 0
-						titleformat_object::ptr artist_album_title;
-
-						if (artist_album_title.is_empty()) {
-							static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(artist_album_title, "%artist% - %album% - %title%");
-						}
-						pfc::string_formatter p_out;
-
-						//metadb_index_hash hash;
-						//g_client->hashHandle(p_item, hash);
-
-						handle->format_title(NULL, p_out, artist_album_title, NULL);
-						FB2K_console_formatter() << p_out << "  -  " << artist << " - " << album << " - " << title;
-#endif
-
-						//Query *query = new Query();
-						//query->add_apikey();
-						//query->add_param("user", "MordredKLB");
-						//query->add_param("artist", artist);
-						//query->add_param("limit", 1);
-						//query->add_param("format", "json");
-						//query->perform();
 					}
-
+#endif
 					break;
-				case 2:
-					playTimes = playtimes_get(hash);
+				case PLAYED_TIMES_LASTFM:
+				case PLAYED_TIMES_LASTFM_JS:
+					playTimes = playtimes_get(hash, false);
 					if (!playTimes.size()) {
 						out->write(titleformat_inputtypes::meta, "[]");
 					} else {
-						out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, false, false).c_str());
+						if (index == PLAYED_TIMES_LASTFM) {
+							out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, true, false).c_str());
+						} else {
+							out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, false, true).c_str());
+						}
 					}
 					break;
 			}

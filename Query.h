@@ -12,8 +12,7 @@ namespace foo_enhanced_playcount {
 	private:
 		inline char to_hex(char);
 		pfc::string8 url_encode(pfc::string8 in, bool encodeSpecialChars = false);
-		//TiXmlElement *parse(pfc::string8 &buffer, TiXmlDocument &xml);
-
+		
 		pfc::string8 url;
 	};
 }
