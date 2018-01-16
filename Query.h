@@ -1,4 +1,5 @@
 #pragma once
+#include "LruCache.cpp"
 
 namespace foo_enhanced_playcount {
 	class Query {
@@ -12,8 +13,8 @@ namespace foo_enhanced_playcount {
 
 	private:
 		inline char to_hex(char);
-		pfc::string8 url_encode(pfc::string8 in, bool encodeSpecialChars = false);
-		
+		pfc::string8 url_encode(pfc::string8 in);
+
 		pfc::string8 url;
 	};
 }

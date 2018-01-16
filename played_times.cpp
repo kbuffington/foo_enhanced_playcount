@@ -147,7 +147,7 @@ namespace {
 			artist = info.meta_get("ARTIST", 0);
 			album = info.meta_get("ALBUM", 0);
 			title = info.meta_get("TITLE", 0);
-			
+
 			if (info.get_length() > 29) {	// you can't scrobble a song less than 30 seconds long, so don't check to see if it was scrobbled.
 				Lastfm *lfm = new Lastfm();
 				playTimes = lfm->queryLastfm(artist, album, title, lastPlay);
@@ -254,7 +254,7 @@ namespace {
 			playTimes = getLastFmPlaytimes(p_item, record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
 
 			record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
-			
+
 			playtime_set(hash, record, fp, lp);
 		}
 	};
