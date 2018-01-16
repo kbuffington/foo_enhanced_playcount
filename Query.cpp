@@ -68,19 +68,12 @@ pfc::string8 Query::url_encode(pfc::string8 in, bool encodeSpecialChars) {
 }
 
 pfc::string8 Query::perform(abort_callback &callback) {
-#ifdef DEBUG
-	auto logger = uDebugLog();
-	logger << "MusicBrainz tagger: accessing " << url;
-#endif
-
 	// Download
 	static_api_ptr_t<http_client> http;
 	auto request = http->create_request("GET");
 	request->add_header("User-Agent", "foo_musicbrainz/" COMPONENT_VERSION);
 #ifdef DEBUG
-	FB2K_console_formatter() << "Calling last.fm API with: " << url;
-	//auto buffer = "";
-#else
+	FB2K_console_formatter() << "Calling last.fm API: " << url;
 #endif	
 	auto response = request->run_ex(url, callback);
 	

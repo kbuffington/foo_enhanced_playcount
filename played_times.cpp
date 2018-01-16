@@ -17,6 +17,7 @@ metadb_display_field_provider_impl - publishes %foo_sample_rating% via title for
 */
 
 using namespace foo_enhanced_playcount;
+using namespace pfc;
 
 namespace {
 
@@ -135,8 +136,8 @@ namespace {
 		return record;
 	}
 
-	std::vector<t_filetimestamp> getLastFmPlaytimes(metadb_handle_ptr p_item) {
-		static std::vector<t_filetimestamp> playTimes;
+	std::vector<t_filetimestamp> getLastFmPlaytimes(metadb_handle_ptr p_item, const t_filetimestamp lastPlay) {
+		std::vector<t_filetimestamp> playTimes;
 		file_info_impl info;
 		if (p_item->get_info(info)) {
 			t_filetimestamp start = filetimestamp_from_system_timer();
@@ -146,9 +147,11 @@ namespace {
 			artist = info.meta_get("ARTIST", 0);
 			album = info.meta_get("ALBUM", 0);
 			title = info.meta_get("TITLE", 0);
-
-			Lastfm *lfm = new Lastfm();
-			playTimes = lfm->queryLastfm(artist, album, title);
+			
+			if (info.get_length() > 29) {	// you can't scrobble a song less than 30 seconds long, so don't check to see if it was scrobbled.
+				Lastfm *lfm = new Lastfm();
+				playTimes = lfm->queryLastfm(artist, album, title, lastPlay);
+			}
 
 #if 0
 			std::string str;
@@ -162,8 +165,7 @@ namespace {
 			FB2K_console_formatter() << str.c_str();
 #endif
 			t_filetimestamp end = filetimestamp_from_system_timer();
-			FB2K_console_formatter() << "Time Elapsed: " << (end - start) / 10000 << "ms";
-
+			FB2K_console_formatter() << "Time Elapsed: " << (end - start) / 10000 << "ms - found : " << playTimes.size() << " plays in last.fm (since last recorded play for this track)";
 		}
 
 		return playTimes;
@@ -171,22 +173,14 @@ namespace {
 
 	static std::vector<t_filetimestamp> playtimes_get(metadb_index_hash hash, static_api_ptr_t<metadb_index_manager> & api, bool last_fm_times) {
 		std::vector<t_filetimestamp> playTimes;
-#if 0
-		t_filetimestamp playTimeArray[1000];
-		int size = api->get_user_data_here(guid_foo_enhanced_playcount_index, hash, &playTimeArray, sizeof(playTimeArray));
-		int numElements = size / sizeof(t_filetimestamp);
-		for (int i = 0; i < numElements; i++) {
-			playTimes.push_back(playTimeArray[i]);
-		}
-		//FB2K_console_formatter() << "[foo_enhanced_playcount]: numElements = " << numElements;
-#else
 		record_t record = getRecord(hash, api);
+
 		if (last_fm_times) {
 			return record.lastfmPlaytimes;
 		} else {
 			return record.foobarPlaytimes;
 		}
-#endif
+
 		return playTimes;
 	}
 
@@ -202,22 +196,6 @@ namespace {
 		time /= 10000000;
 		time *= 10000000;
 		static_api_ptr_t<metadb_index_manager> api;
-#if 0
-		t_filetimestamp playTimeList[1000];
-		size_t size = api->get_user_data_here(guid_foo_enhanced_playcount_index, hash, playTimeList, sizeof(playTimeList));
-		size_t numElements = size / sizeof(t_filetimestamp);
-		int index = numElements;
-		if (numElements == 0 && fp) {	// add first played and last played if this is the first time we've recorded a play for this file
-			playTimeList[index++] = fp;
-			if (fp != lp) {
-				playTimeList[index++] = lp;
-			}
-		}
-		playTimeList[index++] = time;
-		//FB2K_console_formatter() << "[foo_enhanced_playcount]: numElements = " << numElements << " - updating numElements to " << index << " " << fp;
-		api->set_user_data(guid_foo_enhanced_playcount_index, hash, &playTimeList, sizeof(t_filetimestamp)* index);
-
-#else
 		record.version = kCurrVersion;
 
 		if (record.numFoobarPlays == 0 && fp) {	// add first played and last played if this is the first time we've recorded a play for this file
@@ -245,7 +223,6 @@ namespace {
 
 		//FB2K_console_formatter() << "[foo_enhanced_playcount]: numElements = " << numElements << " - updating numElements to " << index << " " << fp;
 		api->set_user_data(guid_foo_enhanced_playcount_index, hash, buf, size * sizeof(int));
-#endif
 	}
 
 	class my_playback_statistics_collector : public playback_statistics_collector {
@@ -274,14 +251,11 @@ namespace {
 			static_api_ptr_t<metadb_index_manager> api;
 			record_t record = getRecord(hash, api);
 			std::vector<t_filetimestamp> playTimes;
-			record.lastfmPlaytimes = getLastFmPlaytimes(p_item);
+			playTimes = getLastFmPlaytimes(p_item, record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
 
-			//record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), )
-			//console::printf(p_out);
-			//FB2K_console_formatter() << firstPlayed << " - " << lastPlayed;
-			//FB2K_console_formatter() << format_filetimestamp::format_filetimestamp(fp) << " - " << format_filetimestamp::format_filetimestamp(lp);
-
-			//playtime_set(hash, record, fp, lp);
+			record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
+			
+			playtime_set(hash, record, fp, lp);
 		}
 	};
 
@@ -290,8 +264,7 @@ namespace {
 	std::string t_uint64_to_string(t_uint64 value, bool jsTimestamp) {
 		std::ostringstream os;
 		if (jsTimestamp) {
-			t_uint64 jsValue = (value - 116444736000000000) / 10000000;	// convert to JS timestamp
-			jsValue *= 1000;	// strip out ms
+			t_uint64 jsValue = fileTimeWtoU(value) * 1000;	// convert to unix timestamp, then add milliseconds for JS
 			os << jsValue;
 		} else {
 			os << value;

@@ -11,6 +11,7 @@
 
 using namespace rapidjson;
 using namespace foo_enhanced_playcount;
+using namespace pfc;
 
 Lastfm::Lastfm() {
 	artist = "";
@@ -19,15 +20,17 @@ Lastfm::Lastfm() {
 	user = "MordredKLB";
 }
 
-std::vector<t_filetimestamp> Lastfm::queryLastfm(pfc::string8 trackartist, pfc::string8 trackalbum, pfc::string8 tracktitle) {
+std::vector<t_filetimestamp> Lastfm::queryLastfm(pfc::string8 trackartist, pfc::string8 trackalbum, pfc::string8 tracktitle, t_filetimestamp lastPlay) {
 	artist << trackartist;
 	album << trackalbum;
 	title << tracktitle;
 
+#if 0	/* test values for large results */
 	artist = "Eric Johnson";
-	album = "Up Close";
+	album = "Europe Live";
 	title = "Fatdaddy";
 	user = "joyjoykid";
+#endif
 
 	std::vector<t_filetimestamp> playTimes;
 	bool done = false;
@@ -41,6 +44,10 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(pfc::string8 trackartist, pfc::
 		query->add_param("limit", 200);
 		query->add_param("format", "json");
 		query->add_param("page", page++);
+		if (lastPlay > 0) {
+			t_uint64 timestamp = fileTimeWtoU(lastPlay) + 1;	// convert to unix ts
+			query->add_param("startTimestamp", timestamp);
+		}
 		auto buf = query->perform();
 
 		done = parseJson(buf, playTimes);
@@ -102,9 +109,7 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 							date = dt["uts"].GetString();
 						}
 						t_filetimestamp time = atoi(date);
-						time *= 10000000;
-						time += 116444736000000000;
-						playTimes.insert(playTimes.begin(), time);
+						playTimes.insert(playTimes.begin(), fileTimeUtoW(time));
 
 					} else {
 						//FB2K_console_formatter() << "Not found: " << str;

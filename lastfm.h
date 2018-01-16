@@ -7,7 +7,7 @@ namespace foo_enhanced_playcount {
 	class Lastfm {
 	public:
 		Lastfm::Lastfm();
-		std::vector<t_filetimestamp> queryLastfm(pfc::string8 trackartist, pfc::string8 trackalbum, pfc::string8 tracktitle);
+		std::vector<t_filetimestamp> queryLastfm(pfc::string8 trackartist, pfc::string8 trackalbum, pfc::string8 tracktitle, t_filetimestamp lastPlay);
 
 	private:
 		//std::vector<t_filetimestamp> parseJson(const pfc::string8 buffer);
