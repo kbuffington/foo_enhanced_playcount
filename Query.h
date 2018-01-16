@@ -6,6 +6,7 @@ namespace foo_enhanced_playcount {
 		Query(const char *method = "user.getartisttracks");
 		void add_param(const char *param, pfc::string8 value, bool encode = true);
 		void add_param(const char *param, int value);
+		void add_param(const char *param, unsigned int value);
 		void add_apikey();
 		pfc::string8 perform(abort_callback &callback = abort_callback_dummy());
 

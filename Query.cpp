@@ -33,6 +33,12 @@ void Query::add_param(const char *param, int value) {
 	add_param(param, str, false);
 }
 
+void Query::add_param(const char *param, unsigned int value) {
+	pfc::string8 str;
+	str << value;
+	add_param(param, str, false);
+}
+
 void Query::add_apikey() {
 	add_param("api_key", lastfmApiKey);
 }
@@ -71,7 +77,7 @@ pfc::string8 Query::perform(abort_callback &callback) {
 	// Download
 	static_api_ptr_t<http_client> http;
 	auto request = http->create_request("GET");
-	request->add_header("User-Agent", "foo_musicbrainz/" COMPONENT_VERSION);
+	request->add_header("User-Agent", "foo_enhanced_playcount/" COMPONENT_VERSION);
 #ifdef DEBUG
 	FB2K_console_formatter() << "Calling last.fm API: " << url;
 #endif	

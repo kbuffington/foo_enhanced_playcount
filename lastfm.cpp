@@ -46,7 +46,7 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(pfc::string8 trackartist, pfc::
 		query->add_param("page", page++);
 		if (lastPlay > 0) {
 			t_uint64 timestamp = fileTimeWtoU(lastPlay) + 1;	// convert to unix ts
-			query->add_param("startTimestamp", timestamp);
+			query->add_param("startTimestamp", (unsigned int) timestamp);
 		}
 		auto buf = query->perform();
 

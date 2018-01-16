@@ -1,3 +1,3 @@
 #pragma once
 
-#define COMPONENT_VERSION		"1.0.2"
+#define COMPONENT_VERSION		"1.5.0"
