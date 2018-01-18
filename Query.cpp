@@ -93,9 +93,9 @@ pfc::string8 Query::perform(abort_callback &callback) {
 		cacheable = false;
 	}
 	if (!cacheable || !pageCache.get(hashCode(url.get_ptr()), buffer)) {
-#ifdef DEBUG
+//#ifdef DEBUG		// TODO: put this back
 		FB2K_console_formatter() << "Calling last.fm API: " << url;
-#endif	
+//#endif	
 		// cach miss so query api
 		auto response = request->run_ex(url, callback);
 
@@ -108,9 +108,9 @@ pfc::string8 Query::perform(abort_callback &callback) {
 			pageCache.set(hashCode(url.get_ptr()), buffer);
 		}
 	} else {
-#ifdef DEBUG
+//#ifdef DEBUG
 		FB2K_console_formatter() << "Cache hit for: " << url;
-#endif	
+//#endif	
 	}
 
 	return buffer.c_str();
