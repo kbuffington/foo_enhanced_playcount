@@ -75,6 +75,7 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 		const Value& t = a["track"];
 		if (t.IsArray()) {
 			count = t.Size();
+			t_filetimestamp lastRecordedTime =  9999999999999;	// large number
 			for (SizeType i = 0; i < t.Size(); i++) { // rapidjson uses SizeType instead of size_t.
 				const Value& track = t[i];
 				if (track.IsObject()) {
@@ -95,31 +96,41 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 
 						const Value& dt = track["date"];
 						const char * date;
-#if 0
+#if 0				// leaving this for debugging purposes for now
 						if (dt.IsObject()) {
 							date = dt["uts"].GetString();
 							str += " - ";
 						}
 						t_filetimestamp time = atoi(date);
-						time *= 1000;
-						FB2K_console_formatter() << "FOUND: " << str << time;
-						time *= 10000;
-#endif
+						FB2K_console_formatter() << "FOUND: " << str << time * 1000;
+#else
 						if (dt.IsObject()) {
 							date = dt["uts"].GetString();
 						}
+#endif
 						t_filetimestamp time = atoi(date);
-						playTimes.insert(playTimes.begin(), fileTimeUtoW(time));
-
-					} else {
-						//FB2K_console_formatter() << "Not found: " << str;
+						if (time < lastRecordedTime - 29) {
+							/* last.fm occasionally and randomly will double count songs, giving each one a timestamp
+							 * one second apart. Skip all times that are scrobbled less than 30 seconds apart because
+							 * you can't scrobble a song less than 30 seconds long so it must be a false play. Plays
+							 * are listed most recent first so we have to subtract.
+							 */
+							lastRecordedTime = time;
+							playTimes.insert(playTimes.begin(), fileTimeUtoW(time));
+#ifdef DEBUG
+						} else {
+							FB2K_console_formatter() << "Skipping double scrobble: " << i << " - " << time << " - " << lastRecordedTime;
+#endif
+						}
 					}
 				}
 			}
 		}
 	}
+#ifdef DEBUG
 	t_filetimestamp end = filetimestamp_from_system_timer();
-	FB2K_console_formatter() << "Time Elapsed: " << ((float)(end - start)) / 10000000 << " seconds";
+	FB2K_console_formatter() << "Parsing time Elapsed: " << ((float)(end - start)) / 10000000 << " seconds";
+#endif
 
 	return count < 200;
 }
