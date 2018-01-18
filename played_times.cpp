@@ -88,13 +88,14 @@ namespace {
 
 	struct record_t {
 		unsigned int version = kCurrVersion;
-		int numFoobarPlays = 0;
-		int numLastfmPlays = 0;
+		unsigned int numFoobarPlays = 0;
+		unsigned int numLastfmPlays = 0;
 		int unused = 0;			// available for later
 		std::vector<t_filetimestamp> foobarPlaytimes;
 		std::vector<t_filetimestamp> lastfmPlaytimes;
 	};
 
+#if 0
 	void copyTimestampsToVector(void *buf, const size_t numElements, std::vector<t_filetimestamp>& v) {
 		t_filetimestamp *tArray;
 
@@ -103,11 +104,19 @@ namespace {
 		v.insert(v.begin(), tArray, tArray + numElements);
 		delete tArray;
 	}
+#else
+	void copyTimestampsToVector(t_filetimestamp *buf, const size_t numElements, std::vector<t_filetimestamp>& v) {
+		v.insert(v.begin(), buf, buf + numElements);
+	}
+#endif 
 
 	static record_t getRecord(metadb_index_hash hash, static_api_ptr_t<metadb_index_manager> & api) {
 		unsigned int buf[10004];
-		int size = api->get_user_data_here(guid_foo_enhanced_playcount_index, hash, &buf, sizeof(buf));
 		record_t record;
+		int size = api->get_user_data_here(guid_foo_enhanced_playcount_index, hash, &buf, sizeof(buf));
+		if (!size) {
+			return record;
+		}
 		int numElements;
 
 		if (buf[0] > 0 && buf[0] < 9) {
@@ -120,16 +129,17 @@ namespace {
 			case 0:
 				numElements = size / sizeof(t_filetimestamp);
 				record.numFoobarPlays = numElements;
-				copyTimestampsToVector(buf, record.numFoobarPlays, record.foobarPlaytimes);
+				copyTimestampsToVector((t_filetimestamp *)buf, record.numFoobarPlays, record.foobarPlaytimes);
 				record.numLastfmPlays = 0;
 				break;
 			case 1:
-				record.numFoobarPlays = (int) buf[1];
-				record.numLastfmPlays = (int) buf[2];
+				record.numFoobarPlays = buf[1];
+				record.numLastfmPlays = buf[2];
 				if (record.numFoobarPlays > 0)
-					copyTimestampsToVector(&buf[4], record.numFoobarPlays, record.foobarPlaytimes);
+					copyTimestampsToVector((t_filetimestamp *)&buf[4], record.numFoobarPlays, record.foobarPlaytimes);
 				if (record.numLastfmPlays > 0)
-					copyTimestampsToVector(&buf[4] + (record.numFoobarPlays * sizeof(t_filetimestamp) / sizeof(int)), record.numLastfmPlays, record.lastfmPlaytimes);
+					copyTimestampsToVector((t_filetimestamp *)&buf[4] + record.numFoobarPlays, 
+							record.numLastfmPlays, record.lastfmPlaytimes);
 				break;
 		}
 
@@ -140,32 +150,32 @@ namespace {
 		std::vector<t_filetimestamp> playTimes;
 		file_info_impl info;
 		if (p_item->get_info(info)) {
-			t_filetimestamp start = filetimestamp_from_system_timer();
-			pfc::string8 artist;
-			pfc::string8 album;
-			pfc::string8 title;
-			artist = info.meta_get("ARTIST", 0);
-			album = info.meta_get("ALBUM", 0);
-			title = info.meta_get("TITLE", 0);
-
 			if (info.get_length() > 29) {	// you can't scrobble a song less than 30 seconds long, so don't check to see if it was scrobbled.
+				t_filetimestamp start = filetimestamp_from_system_timer();
+				pfc::string8 artist;
+				pfc::string8 album;
+				pfc::string8 title;
+				artist = info.meta_get("ARTIST", 0);
+				album = info.meta_get("ALBUM", 0);
+				title = info.meta_get("TITLE", 0);
+
 				Lastfm *lfm = new Lastfm();
 				playTimes = lfm->queryLastfm(artist, album, title, lastPlay);
-			}
 
 #if 0
-			std::string str;
-			size_t idx = 0;
-			for (std::vector<t_filetimestamp>::iterator it = playTimes.begin(); it != playTimes.end(); ++it, ++idx) {
-				str.append(format_filetimestamp::format_filetimestamp(*it));
-				if (idx + 1 < playTimes.size()) {
-					str.append(", ");
+				std::string str;
+				size_t idx = 0;
+				for (std::vector<t_filetimestamp>::iterator it = playTimes.begin(); it != playTimes.end(); ++it, ++idx) {
+					str.append(format_filetimestamp::format_filetimestamp(*it));
+					if (idx + 1 < playTimes.size()) {
+						str.append(", ");
+					}
 				}
-			}
-			FB2K_console_formatter() << str.c_str();
+				FB2K_console_formatter() << str.c_str();
 #endif
-			t_filetimestamp end = filetimestamp_from_system_timer();
-			FB2K_console_formatter() << "Time Elapsed: " << (end - start) / 10000 << "ms - found : " << playTimes.size() << " plays in last.fm (since last recorded play for this track)";
+				t_filetimestamp end = filetimestamp_from_system_timer();
+				FB2K_console_formatter() << "Time Elapsed: " << (end - start) / 10000 << "ms - found : " << playTimes.size() << " plays in last.fm (since last recorded play for this track)";
+			}
 		}
 
 		return playTimes;
