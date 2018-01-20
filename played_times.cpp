@@ -308,8 +308,9 @@ namespace {
 		PLAYED_TIMES_JS,
 		PLAYED_TIMES_RAW,
 
-		PLAYED_TIMES_LASTFM,
-		PLAYED_TIMES_LASTFM_JS,
+		LASTFM_PLAYED_TIMES,
+		LASTFM_PLAYED_TIMES_JS,
+		LASTFM_PLAY_COUNT,
 
 		MAX_NUM_FIELDS	// always last entry in this enum
 	};
@@ -332,11 +333,14 @@ namespace {
 				case PLAYED_TIMES_RAW:
 					out = "played_times_raw";
 					break;
-				case PLAYED_TIMES_LASTFM:
-					out = "played_times_lastfm";
+				case LASTFM_PLAYED_TIMES:
+					out = "lastfm_played_times";
 					break;
-				case PLAYED_TIMES_LASTFM_JS:
-					out = "played_times_lastfm_js";
+				case LASTFM_PLAYED_TIMES_JS:
+					out = "lastfm_played_times_js";
+					break;
+				case LASTFM_PLAY_COUNT:
+					out = "lastfm_play_count";
 					break;
 			}
 		}
@@ -392,18 +396,22 @@ namespace {
 					}
 #endif
 					break;
-				case PLAYED_TIMES_LASTFM:
-				case PLAYED_TIMES_LASTFM_JS:
+				case LASTFM_PLAYED_TIMES:
+				case LASTFM_PLAYED_TIMES_JS:
 					playTimes = playtimes_get(hash, true);
 					if (!playTimes.size()) {
 						out->write(titleformat_inputtypes::meta, "[]");
 					} else {
-						if (index == PLAYED_TIMES_LASTFM) {
+						if (index == LASTFM_PLAYED_TIMES) {
 							out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, true, false).c_str());
 						} else {
 							out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, false, true).c_str());
 						}
 					}
+					break;
+				case LASTFM_PLAY_COUNT:
+					playTimes = playtimes_get(hash, true);
+					out->write_int(titleformat_inputtypes::meta, playTimes.size());
 					break;
 			}
 			return true;
