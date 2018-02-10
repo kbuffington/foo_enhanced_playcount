@@ -1,29 +1,35 @@
 #include "stdafx.h"
 #include "resource.h"
-
-// Sample preferences interface: two meaningless configuration settings accessible through a preferences page and one accessible through advanced preferences.
+#include "util.h"
+#include "globals.h"
 
 
 // These GUIDs identify the variables within our component's configuration file.
-static const GUID guid_cfg_bogoSetting1 = { 0xbd5c777, 0x735c, 0x440d, { 0x8c, 0x71, 0x49, 0xb6, 0xac, 0xff, 0xce, 0xb8 } };
+static const GUID guid_cfg_lastfm_name = { 0xbd5c777, 0x735c, 0x440d, { 0x8c, 0x71, 0x49, 0xb6, 0xac, 0xff, 0xce, 0xb8 } };
 static const GUID guid_cfg_bogoSetting2 = { 0x752f1186, 0x9f61, 0x4f91, { 0xb3, 0xee, 0x2f, 0x25, 0xb1, 0x24, 0x83, 0x5d } };
 
-// This GUID identifies our Advanced Preferences branch (replace with your own when reusing code).
-static const GUID guid_advconfig_branch = { 0x28564ced, 0x4abf, 0x4f0c, { 0xa4, 0x43, 0x98, 0xda, 0x88, 0xe2, 0xcd, 0x39 } };
-// This GUID identifies our Advanced Preferences setting (replace with your own when reusing code) as well as this setting's storage within our component's configuration file.
-static const GUID guid_cfg_bogoSetting3 = { 0xf7008963, 0xed60, 0x4084, { 0xa8, 0x5d, 0xd1, 0xcd, 0xc5, 0x51, 0x22, 0xca } };
+// This GUID identifies our Advanced Preferences branch
+static const GUID guid_advconfig_branch = { 0xb6d0b26b, 0x7988, 0x4f5f, { 0x8c, 0x2c, 0x84, 0xa0, 0x21, 0x80, 0xf8, 0xf4 } };
+
+// This GUID identifies our Advanced Preferences setting as well as this setting's storage within our component's configuration file.
+static const GUID guid_cfg_bogoSetting3 = { 0x2838e7ed, 0x138f, 0x4198, { 0xba, 0x85, 0xc2, 0xc5, 0xbe, 0xdb, 0xca, 0xa1 } };
 
 
 enum {
-	default_cfg_bogoSetting1 = 1337,
 	default_cfg_bogoSetting2 = 666,
 	default_cfg_bogoSetting3 = 42,
 };
 
-static cfg_uint cfg_bogoSetting1(guid_cfg_bogoSetting1, default_cfg_bogoSetting1), cfg_bogoSetting2(guid_cfg_bogoSetting2, default_cfg_bogoSetting2);
+const LPCTSTR default_cfg_lastfm_name = L"<none>";
 
-static advconfig_branch_factory g_advconfigBranch("Sample Component", guid_advconfig_branch, advconfig_branch::guid_branch_tools, 0);
-static advconfig_integer_factory cfg_bogoSetting3("Bogo setting 3", guid_cfg_bogoSetting3, guid_advconfig_branch, 0, default_cfg_bogoSetting3, 0 /*minimum value*/, 9999 /*maximum value*/);
+
+static cfg_string cfg_lastfm_name(guid_cfg_lastfm_name, reinterpret_cast<const char *>(default_cfg_lastfm_name));
+static cfg_uint cfg_bogoSetting2(guid_cfg_bogoSetting2, default_cfg_bogoSetting2);
+
+char g_lastfm_username[256];
+
+//static advconfig_branch_factory g_advconfigBranch("Enhanced Playcount", guid_advconfig_branch, advconfig_branch::guid_branch_tools, 0);
+//static advconfig_integer_factory cfg_bogoSetting3("Bogo setting 3", guid_cfg_bogoSetting3, guid_advconfig_branch, 0, default_cfg_bogoSetting3, 0 /*minimum value*/, 9999 /*maximum value*/);
 
 class CMyPreferences : public CDialogImpl<CMyPreferences>, public preferences_page_instance {
 public:
@@ -44,8 +50,8 @@ public:
 	//WTL message map
 	BEGIN_MSG_MAP(CMyPreferences)
 		MSG_WM_INITDIALOG(OnInitDialog)
-		COMMAND_HANDLER_EX(IDC_BOGO1, EN_CHANGE, OnEditChange)
-		COMMAND_HANDLER_EX(IDC_BOGO2, EN_CHANGE, OnEditChange)
+		COMMAND_HANDLER_EX(IDC_EPC_LASTFM_NAME, EN_CHANGE, OnEditChange)
+		//COMMAND_HANDLER_EX(IDC_BOGO2, EN_CHANGE, OnEditChange)
 	END_MSG_MAP()
 private:
 	BOOL OnInitDialog(CWindow, LPARAM);
@@ -57,8 +63,10 @@ private:
 };
 
 BOOL CMyPreferences::OnInitDialog(CWindow, LPARAM) {
-	SetDlgItemInt(IDC_BOGO1, cfg_bogoSetting1, FALSE);
-	SetDlgItemInt(IDC_BOGO2, cfg_bogoSetting2, FALSE);
+	std::wstring username = util::str2wstr(cfg_lastfm_name.get_ptr());
+	SetDlgItemText(IDC_EPC_LASTFM_NAME, username.c_str());
+	strncpy_s(g_lastfm_username, cfg_lastfm_name.get_ptr(), strlen(cfg_lastfm_name.get_ptr()));
+	//SetDlgItemInt(IDC_BOGO2, cfg_bogoSetting2, FALSE);
 	return FALSE;
 }
 
@@ -74,13 +82,20 @@ t_uint32 CMyPreferences::get_state() {
 }
 
 void CMyPreferences::reset() {
-	SetDlgItemInt(IDC_BOGO1, default_cfg_bogoSetting1, FALSE);
-	SetDlgItemInt(IDC_BOGO2, default_cfg_bogoSetting2, FALSE);
+	SetDlgItemText(IDC_EPC_LASTFM_NAME, default_cfg_lastfm_name);
+	//SetDlgItemInt(IDC_BOGO2, default_cfg_bogoSetting2, FALSE);
 	OnChanged();
 }
 
 void CMyPreferences::apply() {
-	cfg_bogoSetting1 = GetDlgItemInt(IDC_BOGO1, NULL, FALSE);
+	wchar_t wstr[1024];
+
+	// convert filenames to char
+	GetDlgItemText(IDC_EPC_LASTFM_NAME, (LPTSTR)wstr, sizeof(wstr));
+	auto nameStr = (util::wstr2str(wstr)).c_str();
+	cfg_lastfm_name.set_string(nameStr);
+	strncpy_s(g_lastfm_username, nameStr, strlen(nameStr));
+
 	cfg_bogoSetting2 = GetDlgItemInt(IDC_BOGO2, NULL, FALSE);
 	
 	OnChanged(); //our dialog content has not changed but the flags have - our currently shown values now match the settings so the apply button can be disabled
@@ -88,7 +103,14 @@ void CMyPreferences::apply() {
 
 bool CMyPreferences::HasChanged() {
 	//returns whether our dialog content is different from the current configuration (whether the apply button should be enabled or not)
-	return GetDlgItemInt(IDC_BOGO1, NULL, FALSE) != cfg_bogoSetting1 || GetDlgItemInt(IDC_BOGO2, NULL, FALSE) != cfg_bogoSetting2;
+	wchar_t wstr[1024];
+	bool has_changed;
+
+	GetDlgItemText(IDC_EPC_LASTFM_NAME, (LPTSTR)wstr, sizeof(wstr));
+	has_changed = wcscmp(wstr, (util::str2wstr(cfg_lastfm_name.get_ptr())).c_str()) != 0;
+
+	return has_changed ||
+			GetDlgItemInt(IDC_BOGO2, NULL, FALSE) != cfg_bogoSetting2;
 }
 void CMyPreferences::OnChanged() {
 	//tell the host that our state has changed to enable/disable the apply button appropriately.
@@ -98,10 +120,11 @@ void CMyPreferences::OnChanged() {
 class preferences_page_myimpl : public preferences_page_impl<CMyPreferences> {
 	// preferences_page_impl<> helper deals with instantiation of our dialog; inherits from preferences_page_v3.
 public:
-	const char * get_name() {return "Sample Component";}
+	const char * get_name() {return "Enhanced Playcount";}
 	GUID get_guid() {
-		// This is our GUID. Replace with your own when reusing the code.
-		static const GUID guid = { 0x7702c93e, 0x24dc, 0x48ed, { 0x8d, 0xb1, 0x3f, 0x27, 0xb3, 0x8c, 0x7c, 0xc9 } };
+		FB2K_console_formatter() << "prefs loaded!";
+		static const GUID guid = { 0xbc5c0e0a, 0x36ea, 0x4947, { 0x83, 0x54, 0xb, 0x42, 0x93, 0x45, 0xd1, 0xd9 } };
+
 		return guid;
 	}
 	GUID get_parent_guid() {return guid_tools;}

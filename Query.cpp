@@ -80,37 +80,41 @@ int  hashCode(std::string text) {
 }
 
 pfc::string8 Query::perform(abort_callback &callback) {
-	// Download
 	static_api_ptr_t<http_client> http;
 	bool cacheable = true;
 	auto request = http->create_request("GET");
 
-	request->add_header("User-Agent", "foo_enhanced_playcount/" COMPONENT_VERSION);
+	request->add_header("User-Agent", COMPONENT_NAME"/"COMPONENT_VERSION);
 
-	std::string buffer = url.get_ptr();
+	std::string buffer;
 	if (strstr(url.toString(), "startTimestamp=")) {
 		// we can't cache lastFm plays with a timestamp, because we mark a playcount before last.fm does and we'd never get updated values until the cache entry expires
 		cacheable = false;
 	}
 	if (!cacheable || !pageCache.get(hashCode(url.get_ptr()), buffer)) {
+		// cache miss so query api
 //#ifdef DEBUG		// TODO: put this back
 		FB2K_console_formatter() << "Calling last.fm API: " << url;
 //#endif	
-		// cach miss so query api
-		auto response = request->run_ex(url, callback);
-
-		// Get string
+		file::ptr response;
 		pfc::string8 buf;
-		response->read_string_raw(buf, callback);
+		try {
+			response = request->run_ex(url, callback);
+			response->read_string_raw(buf, callback);
+		} catch (...) {
+			FB2K_console_formatter() << COMPONENT_NAME": Exception making call to last.fm. Returning empty response.";
+			buf = "{}";
+			cacheable = false;
+		}
 
 		buffer = buf.get_ptr();
 		if (cacheable) {
 			pageCache.set(hashCode(url.get_ptr()), buffer);
 		}
 	} else {
-//#ifdef DEBUG
+#ifdef DEBUG
 		FB2K_console_formatter() << "Cache hit for: " << url;
-//#endif	
+#endif	
 	}
 
 	return buffer.c_str();

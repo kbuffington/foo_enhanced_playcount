@@ -4,6 +4,7 @@
 #include "lastfm.h"
 #include <sstream>
 #include <vector>
+#include "resource.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/encodings.h"
@@ -35,6 +36,8 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(pfc::string8 trackartist, pfc::
 	std::vector<t_filetimestamp> playTimes;
 	bool done = false;
 	int page = 1;
+
+	FB2K_console_formatter() << "username = " << g_lastfm_username;
 
 	while (!done && page <= 5) {	// limit to last 1000 last.fm plays for artist
 		Query *query = new Query();
