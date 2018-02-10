@@ -2,8 +2,120 @@
 #include "resource.h"
 #include "util.h"
 #include "globals.h"
+#include "PlaycountConfig.h"
+#include "Bindings.h"
 
+namespace foo_enhanced_playcount {
 
+namespace {
+
+class PlaycountPreferencesDialog
+	: public CDialogImpl<PlaycountPreferencesDialog>
+	, public preferences_page_instance
+{
+public:
+	PlaycountPreferencesDialog(preferences_page_callback::ptr callback)
+		: callback_(callback)
+		, config_(Config)
+	{
+	}
+
+	static int const IDD = IDD_PREFERENCES;
+
+	// #pragma region preferences_page_instance
+	virtual t_uint32 get_state() override;
+	virtual void apply() override;
+	virtual void reset() override;
+	// #pragma endregion
+
+	BEGIN_MSG_MAP(PreferencesDialog)
+		MSG_WM_INITDIALOG(OnInitDialog)
+		COMMAND_HANDLER_EX(IDC_ENABLE_LASTFM_PLAYCOUNTS, BN_CLICKED, OnEditChange)
+		COMMAND_HANDLER_EX(IDC_EPC_LASTFM_NAME, EN_CHANGE, OnEditChange)
+		//MESSAGE_HANDLER(WM_EXECUTE_TASK, ExecuteTaskShim)
+	END_MSG_MAP()
+
+private:
+	BOOL OnInitDialog(CWindow, LPARAM);
+	void OnEditChange(UINT uNotifyCode, int nID, CWindow wndCtl);
+	bool HasChanged() const;
+	void OnChanged();
+
+	preferences_page_callback::ptr const callback_;
+	PlaycountConfig& config_;
+	BindingCollection bindings_;
+};
+
+BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lInitParam*/)
+{
+	bindings_.Bind(config_.EnableLastfmPlaycounts, m_hWnd, IDC_ENABLE_LASTFM_PLAYCOUNTS);
+	bindings_.Bind(config_.LastfmUsername, m_hWnd, IDC_EPC_LASTFM_NAME);
+	bindings_.FlowToControl();
+
+	return FALSE;
+}
+
+void PlaycountPreferencesDialog::OnEditChange(UINT /*uNotifyCode*/, int /*nID*/,
+											  CWindow /*wndCtl*/)
+{
+	OnChanged();
+}
+
+t_uint32 PlaycountPreferencesDialog::get_state()
+{
+	t_uint32 state = preferences_state::resettable;
+	if (HasChanged())
+		state |= preferences_state::changed;
+	return state;
+}
+
+void PlaycountPreferencesDialog::reset()
+{
+	CheckDlgButton(IDC_ENABLE_LASTFM_PLAYCOUNTS, BST_UNCHECKED);
+	uSetDlgItemText(m_hWnd, IDC_EPC_LASTFM_NAME, DefaultLastfmUsername);
+
+	OnChanged();
+}
+
+void PlaycountPreferencesDialog::apply()
+{
+	bindings_.FlowToVar();
+	OnChanged();
+
+	PlaycountConfigNotify::NotifyChanged();
+}
+
+bool PlaycountPreferencesDialog::HasChanged() const
+{
+	return bindings_.HasChanged();
+}
+
+void PlaycountPreferencesDialog::OnChanged() { callback_->on_state_changed(); }
+
+class PlaycountPreferencesPage : public preferences_page_impl<PlaycountPreferencesDialog>
+{
+public:
+	virtual ~PlaycountPreferencesPage() = default;
+
+	virtual const char* get_name() override { return "Last.fm Scrobbling"; }
+
+	virtual GUID get_guid() override
+	{
+		// {B94D4B57-0080-4FAA-AE64-0AC515A1B37C}
+		static GUID const guid = {
+			0xB94D4B57, 0x80, 0x4FAA, {0xAE, 0x64, 0xA, 0xC5, 0x15, 0xA1, 0xB3, 0x7C}};
+		return guid;
+	}
+
+	virtual GUID get_parent_guid() override { return guid_tools; }
+};
+
+preferences_page_factory_t<PlaycountPreferencesPage> g_PageFactory;
+
+} // namespace
+} // namespace foo_enhanced_playcount
+
+/*
 // These GUIDs identify the variables within our component's configuration file.
 static const GUID guid_cfg_lastfm_name = { 0xbd5c777, 0x735c, 0x440d, { 0x8c, 0x71, 0x49, 0xb6, 0xac, 0xff, 0xce, 0xb8 } };
 static const GUID guid_cfg_bogoSetting2 = { 0x752f1186, 0x9f61, 0x4f91, { 0xb3, 0xee, 0x2f, 0x25, 0xb1, 0x24, 0x83, 0x5d } };
@@ -29,7 +141,6 @@ static cfg_uint cfg_bogoSetting2(guid_cfg_bogoSetting2, default_cfg_bogoSetting2
 char g_lastfm_username[256];
 
 //static advconfig_branch_factory g_advconfigBranch("Enhanced Playcount", guid_advconfig_branch, advconfig_branch::guid_branch_tools, 0);
-//static advconfig_integer_factory cfg_bogoSetting3("Bogo setting 3", guid_cfg_bogoSetting3, guid_advconfig_branch, 0, default_cfg_bogoSetting3, 0 /*minimum value*/, 9999 /*maximum value*/);
 
 class CMyPreferences : public CDialogImpl<CMyPreferences>, public preferences_page_instance {
 public:
@@ -97,7 +208,7 @@ void CMyPreferences::apply() {
 	strncpy_s(g_lastfm_username, nameStr, strlen(nameStr));
 
 	cfg_bogoSetting2 = GetDlgItemInt(IDC_BOGO2, NULL, FALSE);
-	
+
 	OnChanged(); //our dialog content has not changed but the flags have - our currently shown values now match the settings so the apply button can be disabled
 }
 
@@ -131,3 +242,4 @@ public:
 };
 
 static preferences_page_factory_t<preferences_page_myimpl> g_preferences_page_myimpl_factory;
+*/

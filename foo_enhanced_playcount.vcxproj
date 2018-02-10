@@ -115,6 +115,7 @@ copy "$(TargetPath)" "C:\Users\Kevin\Dropbox\foobar2000"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Bindings.cpp" />
     <ClCompile Include="initquit.cpp" />
     <ClCompile Include="lastfm.cpp" />
     <ClCompile Include="LruCache.cpp" />
@@ -124,15 +125,18 @@ copy "$(TargetPath)" "C:\Users\Kevin\Dropbox\foobar2000"</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="PlaycountConfig.cpp" />
     <ClCompile Include="played_times.cpp" />
     <ClCompile Include="preferences.cpp" />
     <ClCompile Include="query.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Bindings.h" />
     <ClInclude Include="globals.h" />
     <ClInclude Include="include\rapidjson\rapidjson.h" />
     <ClInclude Include="lastfm.h" />
+    <ClInclude Include="PlaycountConfig.h" />
     <ClInclude Include="query.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
