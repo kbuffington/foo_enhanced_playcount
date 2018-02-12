@@ -57,8 +57,7 @@ public:
         : var_(var)
         , hwnd_(hwnd)
         , controlId_(controlId)
-    {
-    }
+    {}
 
     virtual bool HasChanged() const override
     {

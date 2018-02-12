@@ -9,5 +9,5 @@ namespace util {
 
 	std::string wstr2str(std::wstring wstr);
 
-	t_uint64 timestampWindowsToJS(t_uint64 t);
+	t_uint64 timestampWindowsToJS(t_filetimestamp t);
 }

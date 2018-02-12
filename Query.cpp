@@ -1,7 +1,8 @@
 #include "stdafx.h"
 #include "globals.h"
-#include "query.h"
+#include "Query.h"
 #include "LruCache.cpp"
+#include "PlaycountConfig.h"
 
 static const pfc::string8 lastfmApiKey = "a1685abe5265b93cf2be4a70d181bf6b";
 
@@ -13,19 +14,19 @@ static const char lastfmApiBase[] = "http://ws.audioscrobbler.com/2.0/?method=";
 using namespace foo_enhanced_playcount;
 using namespace pfc;
 
-LruCache<int, std::string> pageCache(10);	// couldn't figure out how to create this in the constructor
+LruCache<int, std::string> pageCache(10);
 
 Query::Query(const char *method) {
 	url << lastfmApiBase << method;
 }
 
+pfc::string8 Query::getCacheSize() {
+	return pageCache.getCacheSize();
+}
+
 char Query::to_hex(char c) {
 	return c < 0xa ? '0' + c : 'a' - 0xa + c;
 }
-
-//void Query::add_param(const char *param, const char *value, bool encode) {
-//	url << "&" << param << "=" << (encode ? url_encode(value) : value);
-//}
 
 void Query::add_param(const char *param, pfc::string8 value, bool encode) {
 	url << "&" << param << "=" << (encode ? url_encode(value) : value);
@@ -67,7 +68,7 @@ pfc::string8 Query::url_encode(pfc::string8 in) {
 	return out;
 }
 
-int  hashCode(std::string text) {
+int hashCode(std::string text) {
 	int hash = 0, strlen = text.length(), i;
 	char character;
 	if (strlen == 0)
@@ -84,7 +85,7 @@ pfc::string8 Query::perform(abort_callback &callback) {
 	bool cacheable = true;
 	auto request = http->create_request("GET");
 
-	request->add_header("User-Agent", COMPONENT_NAME"/"COMPONENT_VERSION);
+	request->add_header("User-Agent", COMPONENT_NAME "/" COMPONENT_VERSION);
 
 	std::string buffer;
 	if (strstr(url.toString(), "startTimestamp=")) {

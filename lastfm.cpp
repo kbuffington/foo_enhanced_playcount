@@ -5,6 +5,7 @@
 #include <sstream>
 #include <vector>
 #include "resource.h"
+#include "PlaycountConfig.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/encodings.h"
@@ -14,17 +15,20 @@ using namespace rapidjson;
 using namespace foo_enhanced_playcount;
 using namespace pfc;
 
-Lastfm::Lastfm() {
-	artist = "";
-	album = "";
-	title = "";
-	user = "MordredKLB";
-}
+PlaycountConfig const& config{ Config };
 
-std::vector<t_filetimestamp> Lastfm::queryLastfm(pfc::string8 trackartist, pfc::string8 trackalbum, pfc::string8 tracktitle, t_filetimestamp lastPlay) {
-	artist << trackartist;
-	album << trackalbum;
-	title << tracktitle;
+Lastfm::Lastfm(pfc::string8 trackartist, pfc::string8 trackalbum, pfc::string8 tracktitle) {
+	user = config.LastfmUsername;
+	if (strcmp(DefaultLastfmUsername, user)) {
+		artist << trackartist;
+		album << trackalbum;
+		title << tracktitle;
+		configured = true;
+	} else {
+		configured = false;
+	}
+
+
 
 #if 0	/* test values for large results */
 	artist = "Eric Johnson";
@@ -32,14 +36,14 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(pfc::string8 trackartist, pfc::
 	title = "Fatdaddy";
 	user = "joyjoykid";
 #endif
+}
 
+std::vector<t_filetimestamp> Lastfm::queryLastfm(t_filetimestamp lastPlay) {
 	std::vector<t_filetimestamp> playTimes;
 	bool done = false;
 	int page = 1;
 
-	FB2K_console_formatter() << "username = " << g_lastfm_username;
-
-	while (!done && page <= 5) {	// limit to last 1000 last.fm plays for artist
+	while (configured && !done && page <= 5) {	// limit to last 1000 last.fm plays for artist
 		Query *query = new Query();
 		query->add_apikey();
 		query->add_param("user", user);

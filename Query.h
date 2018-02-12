@@ -10,6 +10,7 @@ namespace foo_enhanced_playcount {
 		void add_param(const char *param, unsigned int value);
 		void add_apikey();
 		pfc::string8 perform(abort_callback &callback = abort_callback_dummy());
+		pfc::string8 getCacheSize();
 
 	private:
 		inline char to_hex(char);

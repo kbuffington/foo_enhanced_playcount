@@ -4,7 +4,7 @@
 #include <sstream>
 #include "util.h"
 #include "globals.h"
-
+#include "PlaycountConfig.h"
 
 /*
 ========================================================================
@@ -25,6 +25,8 @@ namespace {
 
 	std::string t_uint64_to_string(t_uint64 value, bool jsTimestamp);
 
+	PlaycountConfig const& config{ Config };
+
 	// Replace with your own when reusing.
 	// Always recreate guid_foo_enhanced_playcount_index if your metadb_index_client_impl hashing semantics changed or else you run into inconsistent/nonsensical data.
 	static const GUID guid_foo_enhanced_playcount_index = { 0xc1bd000, 0x43e7, 0x4078, { 0xb8, 0x85, 0x48, 0xee, 0x42, 0x49, 0xde, 0xc2 } };
@@ -35,16 +37,13 @@ namespace {
 	// and data applied to one will also show up with the rest.
 	static const char strPinTo[] = "%artist% %album% $if2(%discnumber%,1) %tracknumber% %title%";
 
-	// Our group in Properties dialog / Details tab, see track_property_provider_impl
-	//static const char strPropertiesGroup[] = "Sample Component";
-
 	// Retain pinned data for four weeks if there are no matching items in library
 	static const t_filetimestamp retentionPeriod = system_time_periods::week * 4;
 
 	// Returns a titleformat_object used to generate key values for our database.
 	static titleformat_object::ptr makeKeyObj(const char * pinTo) {
 		titleformat_object::ptr obj;
-		static_api_ptr_t<titleformat_compiler>()->compile_force(obj, pinTo);
+		titleformat_compiler::get()->compile_force(obj, pinTo);
 		return obj;
 	}
 
@@ -53,10 +52,11 @@ namespace {
 	public:
 		metadb_index_hash transform(const file_info & info, const playable_location & location) {
 			static auto obj = makeKeyObj(strPinTo); // initialized first time we get here and reused later
+			static hasher_md5::ptr hasher = hasher_md5::get();
 			pfc::string_formatter str;
-			obj->run_simple( location, &info, str );
+			obj->run_simple(location, &info, str);
 			// Make MD5 hash of the string, then reduce it to 64-bit metadb_index_hash
-			return static_api_ptr_t<hasher_md5>()->process_single_string( str ).xorHalve();
+			return hasher->process_single_string(str).xorHalve();
 		}
 	};
 
@@ -64,28 +64,39 @@ namespace {
 	// Uses service_impl_single_t, reference counting disabled
 	static metadb_index_client_impl * g_client = new service_impl_single_t<metadb_index_client_impl>;
 
+	// Static cached ptr to metadb_index_manager
+	// Cached because we'll be calling it a lot on per-track basis, let's not pass it everywhere to low level functions
+	static metadb_index_manager::ptr g_api;
+
 	// An init_stage_callback to hook ourselves into the metadb
 	// We need to do this properly early to prevent dispatch_global_refresh() from new fields that we added from hammering playlists etc
 	class init_stage_callback_impl : public init_stage_callback {
 	public:
 		void on_init_stage(t_uint32 stage) {
 			if (stage == init_stages::before_config_read) {
-				static_api_ptr_t<metadb_index_manager> api;
 				// Important, handle the exceptions here!
 				// This will fail if the files holding our data are somehow corrupted.
 				try {
-					api->add(g_client, guid_foo_enhanced_playcount_index, retentionPeriod);
+					g_api = metadb_index_manager::get();
+					g_api->add(g_client, guid_foo_enhanced_playcount_index, retentionPeriod);
 				} catch (std::exception const & e) {
-					api->remove(guid_foo_enhanced_playcount_index);
+					g_api->remove(guid_foo_enhanced_playcount_index);
 					FB2K_console_formatter() << "[foo_enhanced_playcount] Critical initialization failure: " << e;
 					return;
 				}
-				api->dispatch_global_refresh();
+				g_api->dispatch_global_refresh();
 			}
 		}
 	};
-
+	class initquit_impl : public initquit {
+	public:
+		void on_quit() {
+			// Cleanly kill g_cachedAPI before reaching static object destructors or else
+			g_api.release();
+		}
+	};
 	static service_factory_single_t<init_stage_callback_impl> g_init_stage_callback_impl;
+	static service_factory_single_t<initquit_impl> g_initquit_impl;
 
 #define kCurrVersion   1
 
@@ -102,10 +113,10 @@ namespace {
 		v.insert(v.begin(), buf, buf + numElements);
 	}
 
-	static record_t getRecord(metadb_index_hash hash, static_api_ptr_t<metadb_index_manager> & api) {
+	static record_t getRecord(metadb_index_hash hash) {
 		unsigned int buf[10004];
 		record_t record;
-		int size = api->get_user_data_here(guid_foo_enhanced_playcount_index, hash, &buf, sizeof(buf));
+		int size = g_api->get_user_data_here(guid_foo_enhanced_playcount_index, hash, &buf, sizeof(buf));
 		if (!size) {
 			return record;
 		}
@@ -139,7 +150,6 @@ namespace {
 	}
 
 	static void setRecord(metadb_index_hash hash, record_t record) {
-		static_api_ptr_t<metadb_index_manager> api;
 		unsigned int buf[10004];
 		size_t size = 0;
 		memcpy(buf, &record, 4 * sizeof(int));
@@ -152,15 +162,18 @@ namespace {
 			size += record.lastfmPlaytimes.size() * sizeof t_filetimestamp / sizeof(int);
 		}
 
-		api->set_user_data(guid_foo_enhanced_playcount_index, hash, buf, size * sizeof(int));
+		g_api->set_user_data(guid_foo_enhanced_playcount_index, hash, buf, size * sizeof(int));
 	}
 
 	std::vector<t_filetimestamp> getLastFmPlaytimes(metadb_handle_ptr p_item, const t_filetimestamp lastPlay) {
 		std::vector<t_filetimestamp> playTimes;
 		file_info_impl info;
-		if (p_item->get_info(info)) {
-			if (info.get_length() > 2) {	// you can't scrobble a song less than 30 seconds long, so don't check to see if it was scrobbled.
+		if (config.EnableLastfmPlaycounts && p_item->get_info(info)) {
+			if (info.get_length() > 29) {	// you can't scrobble a song less than 30 seconds long, so don't check to see if it was scrobbled.
+				pfc::string8 time;
+#ifdef DEBUG
 				t_filetimestamp start = filetimestamp_from_system_timer();
+#endif
 				pfc::string8 artist;
 				pfc::string8 album;
 				pfc::string8 title;
@@ -168,20 +181,22 @@ namespace {
 				album = info.meta_get("ALBUM", 0);
 				title = info.meta_get("TITLE", 0);
 
-				Lastfm *lfm = new Lastfm();
-				playTimes = lfm->queryLastfm(artist, album, title, lastPlay);
-
+				Lastfm *lfm = new Lastfm(artist, album, title);
+				playTimes = lfm->queryLastfm(lastPlay);
+#ifdef DEBUG
 				t_filetimestamp end = filetimestamp_from_system_timer();
-				FB2K_console_formatter() << "Time Elapsed: " << (end - start) / 10000 << "ms - found : " << playTimes.size() << " plays in last.fm (since last recorded play for this track)";
+				time << "Time Elapsed: " << (end - start) / 10000 << "ms - ";
+#endif
+				FB2K_console_formatter() << time << "Found " << playTimes.size() << " plays in last.fm (since last recorded scrobble) of " << title;
 			}
 		}
 
 		return playTimes;
 	}
 
-	static std::vector<t_filetimestamp> playtimes_get(metadb_index_hash hash, static_api_ptr_t<metadb_index_manager> & api, bool last_fm_times) {
+	static std::vector<t_filetimestamp> playtimes_get(metadb_index_hash hash, bool last_fm_times) {
 		std::vector<t_filetimestamp> playTimes;
-		record_t record = getRecord(hash, api);
+		record_t record = getRecord(hash);
 
 		if (last_fm_times) {
 			return record.lastfmPlaytimes;
@@ -192,16 +207,11 @@ namespace {
 		return playTimes;
 	}
 
-	static std::vector<t_filetimestamp> playtimes_get(metadb_index_hash hash, bool last_fm_times) {
-		static_api_ptr_t<metadb_index_manager> api;
-		return playtimes_get(hash, api, last_fm_times);
-	}
-
-	static int playcount_get(metadb_index_hash hash, static_api_ptr_t<metadb_index_manager> & api, bool last_fm_times) {
-		record_t record = getRecord(hash, api);
+	static int playcount_get(metadb_index_hash hash, bool last_fm_times) {
+		record_t record = getRecord(hash);
 		int count = record.numLastfmPlays;
 
-		if (record.numFoobarPlays && record.numLastfmPlays) {
+		if (config.IncrementLastfmWithPlaycount && record.numFoobarPlays && record.numLastfmPlays) {
 			t_filetimestamp lastRecordedTime;
 			if (record.numLastfmPlays) {
 				std::vector<t_filetimestamp>::reverse_iterator it = record.lastfmPlaytimes.rbegin();
@@ -214,11 +224,6 @@ namespace {
 			}
 		}
 		return count;
-	}
-
-	static int playcount_get(metadb_index_hash hash, bool last_fm_count) {
-		static_api_ptr_t<metadb_index_manager> api;
-		return playcount_get(hash, api, last_fm_count);
 	}
 
 	titleformat_object::ptr playback_statistics_script;
@@ -265,8 +270,7 @@ namespace {
 				lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
 			}
 
-			static_api_ptr_t<metadb_index_manager> api;
-			record_t record = getRecord(hash, api);
+			record_t record = getRecord(hash);
 			std::vector<t_filetimestamp> playTimes;
 			playTimes = getLastFmPlaytimes(p_item, record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
 
@@ -290,9 +294,9 @@ namespace {
 	public:
 		typedef const pfc::list_base_const_t<const file_info*> & t_infosref;
 		void on_edited(metadb_handle_list_cref items, t_infosref before, t_infosref after) {
-			static static_api_ptr_t<metadb_index_manager> api;	// initialized once here
 			for (size_t t = 0; t < items.get_count(); t++) {
 				metadb_index_hash hashOld, hashNew;
+				static hasher_md5::ptr hasher = hasher_md5::get();
 
 				g_client->hashHandle(items[t], hashOld);
 
@@ -305,11 +309,11 @@ namespace {
 				pfc::string_formatter strAfter;
 				strAfter << artist << " " << album << " " << discnum << " " << tracknum << " " << title;
 
-				hashNew = static_api_ptr_t<hasher_md5>()->process_single_string(strAfter).xorHalve();
+				hashNew = hasher->process_single_string(strAfter).xorHalve();
 				if (hashOld != hashNew) {
-					record_t record = getRecord(hashOld, api);
+					record_t record = getRecord(hashOld);
 					if (record.numFoobarPlays || record.numLastfmPlays) {
-						record_t newRecord = getRecord(hashNew, api);
+						record_t newRecord = getRecord(hashNew);
 						if (newRecord.numFoobarPlays <= record.numFoobarPlays &&
 							newRecord.numLastfmPlays <= record.numLastfmPlays &&
 							(record.numFoobarPlays || record.numLastfmPlays)) {
@@ -320,7 +324,6 @@ namespace {
 						}
 					}
 				}
-				//FB2K_console_formatter() << "after: " << strAfter << " - " << hash;
 			}
 		}
 	};
@@ -452,4 +455,53 @@ namespace {
 	};
 
 	static service_factory_single_t<metadb_display_field_provider_impl> g_metadb_display_field_provider_impl;
+}
+
+// Context Menu functions start here
+void ClearLastFmRecords(metadb_handle_list_cref items) {
+	try {
+		if (items.get_count() == 0) throw pfc::exception_invalid_params();
+		
+		for (size_t t = 0; t < items.get_count(); t++) {
+			metadb_index_hash hash;
+			g_client->hashHandle(items[t], hash);
+
+			record_t record = getRecord(hash);
+			record.lastfmPlaytimes.clear();
+			record.numLastfmPlays = 0;
+			setRecord(hash, record);
+			g_api->dispatch_refresh(guid_foo_enhanced_playcount_index, hash);
+		}
+
+	}
+	catch (std::exception const & e) {
+		popup_message::g_complain("Could not remove last.fm plays", e);
+	}
+}
+
+void GetLastfmScrobbles(metadb_handle_list_cref items) {
+	try {
+		if (items.get_count() == 0 || items.get_count() > 50) throw pfc::exception_invalid_params();
+		for (size_t t = 0; t < items.get_count(); t++) {
+			metadb_index_hash hash;
+			g_client->hashHandle(items[t], hash);
+
+			record_t record = getRecord(hash);
+			std::vector<t_filetimestamp> playTimes;
+			playTimes = getLastFmPlaytimes(items[t], record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
+			record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
+			record.numLastfmPlays = record.lastfmPlaytimes.size();
+
+			setRecord(hash, record);
+			g_api->dispatch_refresh(guid_foo_enhanced_playcount_index, hash);
+		}
+	}
+	catch (std::exception const & e) {
+		if (items.get_count() > 50) {
+			popup_message::g_complain("Can only retrieve scrobbles of 50 tracks at a time.", e);
+		}
+		else {
+			popup_message::g_complain("Could not retrieve last.fm scrobbles", e);
+		}
+	}
 }

@@ -3,6 +3,7 @@
 namespace foo_enhanced_playcount {
 
 	__declspec(selectany) extern char const* const DefaultLastfmUsername = "<none>";
+	__declspec(selectany) extern char const* const DefaultLruCacheSize = "10";
 
 	class PlaycountConfig : public cfg_var {
 	public:
@@ -10,8 +11,16 @@ namespace foo_enhanced_playcount {
 		virtual ~PlaycountConfig() = default;
 
 		bool EnableLastfmPlaycounts;
+		bool IncrementLastfmWithPlaycount;
+		bool UnusedBool1;
+		bool UnusedBool2;
+		bool UnusedBool3;
 
 		pfc::string8 LastfmUsername;
+		pfc::string8 LruCacheSize;
+		pfc::string8 UnusedStr1;
+		pfc::string8 UnusedStr2;
+		pfc::string8 UnusedStr3;
 
 	private:
 		virtual void get_data_raw(stream_writer* p_stream, abort_callback& p_abort) override;
