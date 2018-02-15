@@ -87,15 +87,12 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 				const Value& track = t[i];
 				if (track.IsObject()) {
 					const Value& name = track["name"];
-					const Value& ar = track["artist"];
 					const Value& al = track["album"];
 					pfc::string8 str;
-					pfc::string8 lfmArtist = static_cast<pfc::string8>(ar["#text"].GetString());
 					pfc::string8 lfmAlbum = static_cast<pfc::string8>(al["#text"].GetString());
 					pfc::string8 lfmTitle = static_cast<pfc::string8>(name.GetString());
 
-					if (ar.IsObject() && al.IsObject() &&
-						fieldsEq(artist, lfmArtist) &&
+					if (al.IsObject() &&
 						fieldsEq(album, lfmAlbum) &&
 						fieldsEq(title, lfmTitle)) {
 
