@@ -3,7 +3,7 @@
 namespace foo_enhanced_playcount {
 
 	__declspec(selectany) extern char const* const DefaultLastfmUsername = "<none>";
-	__declspec(selectany) extern char const* const DefaultLruCacheSize = "10";
+	__declspec(selectany) extern char const* const DefaultLruCacheSize = "20";
 
 	class PlaycountConfig : public cfg_var {
 	public:
@@ -12,6 +12,7 @@ namespace foo_enhanced_playcount {
 
 		bool EnableLastfmPlaycounts;
 		bool IncrementLastfmWithPlaycount;
+		bool RemoveDuplicateLastfmScrobbles;
 		bool UnusedBool1;
 		bool UnusedBool2;
 		bool UnusedBool3;

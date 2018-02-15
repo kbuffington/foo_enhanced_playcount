@@ -61,11 +61,13 @@ BEGIN
     EDITTEXT        IDC_EPC_LASTFM_NAME,91,35,93,12,ES_AUTOHSCROLL
     CONTROL         "Increment Last.fm playcount when %play_count% increments",IDC_INCREMENT_WITH_PLAYCOUNT,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,56,206,8
-    EDITTEXT        IDC_LASTFM_CACHE_SIZE,133,73,29,13,ES_AUTOHSCROLL | ES_NUMBER
-    LTEXT           "Size of Last.fm response cache:",IDC_CACHE_SIZE_LABEL,30,75,102,8
-    LTEXT           "Pages currently in cache: ",IDC_CURRENT_CACHE_SIZE_LABEL,170,75,83,8
-    LTEXT           "Cache size is cleared on restart. Set to 0 to disable (not recommended!)",IDC_CACHE_EXPLANATION,43,91,224,8
-    LTEXT           "0",IDC_CURRENT_CACHE_SIZE,254,75,38,8
+    CONTROL         "Remove duplicate scrobbles",IDC_REMOVE_DUPLICATE_SCROBBLES,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,72,105,10
+    EDITTEXT        IDC_LASTFM_CACHE_SIZE,133,87,29,13,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Size of Last.fm response cache:",IDC_CACHE_SIZE_LABEL,30,89,102,8
+    LTEXT           "Pages currently in cache: ",IDC_CURRENT_CACHE_SIZE_LABEL,170,89,83,8
+    LTEXT           "Cache size is cleared on restart. Set to 0 to disable (not recommended!)",IDC_CACHE_EXPLANATION,43,105,224,8
+    LTEXT           "0",IDC_CURRENT_CACHE_SIZE,252,89,51,8
 END
 
 

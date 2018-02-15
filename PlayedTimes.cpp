@@ -154,8 +154,10 @@ namespace {
 		size_t size = 0;
 		memcpy(buf, &record, 4 * sizeof(int));
 		size += 4;
-		memcpy(buf + size, &record.foobarPlaytimes[0], record.foobarPlaytimes.size() * sizeof t_filetimestamp);
-		size += record.foobarPlaytimes.size() * sizeof t_filetimestamp / sizeof(int);
+		if (record.foobarPlaytimes.size()) {
+			memcpy(buf + size, &record.foobarPlaytimes[0], record.foobarPlaytimes.size() * sizeof t_filetimestamp);
+			size += record.foobarPlaytimes.size() * sizeof t_filetimestamp / sizeof(int);
+		}
 
 		if (record.lastfmPlaytimes.size()) {
 			memcpy(buf + size, &record.lastfmPlaytimes[0], record.lastfmPlaytimes.size() * sizeof t_filetimestamp);

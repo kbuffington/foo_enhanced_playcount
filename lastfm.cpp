@@ -94,8 +94,6 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 					pfc::string8 lfmAlbum = static_cast<pfc::string8>(al["#text"].GetString());
 					pfc::string8 lfmTitle = static_cast<pfc::string8>(name.GetString());
 
-					//str << lfmArtist << " - " << lfmAlbum << " - " << lfmTitle;
-
 					if (ar.IsObject() && al.IsObject() &&
 						fieldsEq(artist, lfmArtist) &&
 						fieldsEq(album, lfmAlbum) &&
@@ -116,8 +114,8 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 						}
 #endif
 						t_filetimestamp time = atoi(date);
-						if (time < lastRecordedTime - 29) {
-							/* last.fm occasionally and randomly will double count songs, giving each one a timestamp
+						if (!config.RemoveDuplicateLastfmScrobbles || time < lastRecordedTime - 29) {
+							/* last.fm occasionally will double count songs, giving each one a timestamp
 							 * one second apart. Skip all times that are scrobbled less than 30 seconds apart because
 							 * you can't scrobble a song less than 30 seconds long so it must be a false play. Plays
 							 * are listed most recent first so we have to subtract.

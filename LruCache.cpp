@@ -14,7 +14,7 @@ public:
 	bool get(const K& k, V& v);
 	bool erase(const K& k);
 	void setCacheSize(unsigned int capacity) { capacity_ = capacity; };
-	pfc::string8 getCacheSize();
+	int getCacheSize(V& v);
 private:
 	unsigned int capacity_;
 	std::list<std::pair <K, V>> cacheList;
@@ -23,10 +23,14 @@ private:
 };
 
 template <typename K, typename V> 
-pfc::string8 LruCache<K,V>::getCacheSize() {
-	std::string cacheSize = std::to_string(cacheList.size());
+int LruCache<K,V>::getCacheSize(V& v) {
+	int cacheSize = cacheList.size();
 
-	return cacheSize.c_str();
+	for (auto itr = cacheMap.begin(); itr != cacheMap.end(); ++itr) {
+		v += itr->second->second;
+	}
+
+	return cacheSize;
 }
 
 template <typename K, typename V> 
@@ -38,7 +42,7 @@ void LruCache <K, V>::set(const K& k, const V& v) {
 		cacheList.splice(cacheList.begin(), cacheList, itr->second);
 		itr->second = cacheList.begin();
 	} else {
-		if (cacheMap.size() >= capacity_) {
+		while (cacheMap.size() >= capacity_) {
 			cacheMap.erase(cacheList.back().first);
 			cacheList.pop_back();
 		}

@@ -14,14 +14,44 @@ static const char lastfmApiBase[] = "http://ws.audioscrobbler.com/2.0/?method=";
 using namespace foo_enhanced_playcount;
 using namespace pfc;
 
-LruCache<int, std::string> pageCache(10);
+bool initializedCache = false;
+extern PlaycountConfig const& config;
+
+LruCache<int, std::string> pageCache(0);
 
 Query::Query(const char *method) {
+	if (!initializedCache) {
+		if (strlen(config.LruCacheSize.c_str())) {
+			try {
+				pageCache.setCacheSize(stoi(config.LruCacheSize.c_str()));
+			} catch (...) {
+				pageCache.setCacheSize(stoi(DefaultLruCacheSize));
+			}
+		} else {
+			pageCache.setCacheSize(stoi(DefaultLruCacheSize));
+		}
+		initializedCache = true;
+	}
 	url << lastfmApiBase << method;
 }
 
 pfc::string8 Query::getCacheSize() {
-	return pageCache.getCacheSize();
+	std::string cacheVals;
+	pfc::string8 sizeStr = std::to_string(pageCache.getCacheSize(cacheVals)).c_str();
+	size_t memSize = cacheVals.size();
+
+	sizeStr << " [" << (memSize / 1024) << "kB]";
+	return sizeStr;
+}
+
+int Query::setCacheSize(int requestedSize) {
+	if (requestedSize < 0) {
+		requestedSize = 0;
+	} else if (requestedSize > 50) {
+		requestedSize = 50;
+	}
+	pageCache.setCacheSize(requestedSize);
+	return requestedSize;
 }
 
 char Query::to_hex(char c) {
