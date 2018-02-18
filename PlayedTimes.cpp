@@ -167,7 +167,7 @@ namespace {
 		g_api->set_user_data(guid_foo_enhanced_playcount_index, hash, buf, size * sizeof(int));
 	}
 
-	std::vector<t_filetimestamp> getLastFmPlaytimes(metadb_handle_ptr p_item, const t_filetimestamp lastPlay) {
+	std::vector<t_filetimestamp> getLastFmPlaytimes(metadb_handle_ptr p_item, metadb_index_hash hash, const t_filetimestamp lastPlay) {
 		std::vector<t_filetimestamp> playTimes;
 		file_info_impl info;
 		if (config.EnableLastfmPlaycounts && p_item->get_info(info)) {
@@ -183,7 +183,7 @@ namespace {
 				album = info.meta_get("ALBUM", 0);
 				title = info.meta_get("TITLE", 0);
 
-				Lastfm *lfm = new Lastfm(artist, album, title);
+				Lastfm *lfm = new Lastfm(hash, artist, album, title);
 				playTimes = lfm->queryLastfm(lastPlay);
 #ifdef DEBUG
 				t_filetimestamp end = filetimestamp_from_system_timer();
@@ -274,7 +274,8 @@ namespace {
 
 			record_t record = getRecord(hash);
 			std::vector<t_filetimestamp> playTimes;
-			playTimes = getLastFmPlaytimes(p_item, record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
+			playTimes = getLastFmPlaytimes(p_item, hash, 
+				record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
 
 			record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
 
@@ -490,7 +491,8 @@ void GetLastfmScrobbles(metadb_handle_list_cref items) {
 
 			record_t record = getRecord(hash);
 			std::vector<t_filetimestamp> playTimes;
-			playTimes = getLastFmPlaytimes(items[t], record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
+			playTimes = getLastFmPlaytimes(items[t], hash, 
+				record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
 			record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
 			record.numLastfmPlays = record.lastfmPlaytimes.size();
 

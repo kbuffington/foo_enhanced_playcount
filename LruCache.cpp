@@ -14,7 +14,8 @@ public:
 	bool get(const K& k, V& v);
 	bool erase(const K& k);
 	void setCacheSize(unsigned int capacity) { capacity_ = capacity; };
-	int getCacheSize(V& v);
+	int getCacheSize();
+	//int getCacheSize(V& v);
 private:
 	unsigned int capacity_;
 	std::list<std::pair <K, V>> cacheList;
@@ -23,12 +24,12 @@ private:
 };
 
 template <typename K, typename V> 
-int LruCache<K,V>::getCacheSize(V& v) {
+int LruCache<K,V>::getCacheSize() {
 	int cacheSize = cacheList.size();
 
-	for (auto itr = cacheMap.begin(); itr != cacheMap.end(); ++itr) {
-		v += itr->second->second;
-	}
+	//for (auto itr = cacheMap.begin(); itr != cacheMap.end(); ++itr) {
+	//	v += itr->second->second;
+	//}
 
 	return cacheSize;
 }

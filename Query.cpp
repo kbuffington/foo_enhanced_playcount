@@ -17,7 +17,12 @@ using namespace pfc;
 bool initializedCache = false;
 extern PlaycountConfig const& config;
 
-LruCache<int, std::string> pageCache(0);
+struct cacheObj {
+	std::vector<metadb_index_hash> readHashes;
+	std::string response;
+};
+
+LruCache<int, cacheObj> pageCache(0);
 
 Query::Query(const char *method) {
 	if (!initializedCache) {
@@ -37,10 +42,11 @@ Query::Query(const char *method) {
 
 pfc::string8 Query::getCacheSize() {
 	std::string cacheVals;
-	pfc::string8 sizeStr = std::to_string(pageCache.getCacheSize(cacheVals)).c_str();
-	size_t memSize = cacheVals.size();
+	//pfc::string8 sizeStr = std::to_string(pageCache.getCacheSize(cacheVals)).c_str();
+	pfc::string8 sizeStr = std::to_string(pageCache.getCacheSize()).c_str();
+	//size_t memSize = cacheVals.size();
 
-	sizeStr << " [" << (memSize / 1024) << "kB]";
+	//sizeStr << " [" << (memSize / 1024) << "kB]";
 	return sizeStr;
 }
 
@@ -110,7 +116,7 @@ int hashCode(std::string text) {
 	return hash;
 }
 
-pfc::string8 Query::perform(abort_callback &callback) {
+pfc::string8 Query::perform(metadb_index_hash hash, abort_callback &callback) {
 	static_api_ptr_t<http_client> http;
 	bool cacheable = true;
 	auto request = http->create_request("GET");
@@ -118,15 +124,21 @@ pfc::string8 Query::perform(abort_callback &callback) {
 	request->add_header("User-Agent", COMPONENT_NAME "/" COMPONENT_VERSION);
 
 	std::string buffer;
-	if (strstr(url.toString(), "startTimestamp=")) {
-		// we can't cache lastFm plays with a timestamp, because we mark a playcount before last.fm does and we'd never get updated values until the cache entry expires
-		cacheable = false;
+	cacheObj * cacheVal = new cacheObj;
+	bool hit = pageCache.get(hashCode(url.get_ptr()), *cacheVal);
+	if (hit) {
+		if (std::find(cacheVal->readHashes.begin(), cacheVal->readHashes.end(), hash) != cacheVal->readHashes.end()) {
+			hit = false;					// this hash has read from this cache already, so clear cached value
+			cacheVal->readHashes.clear();	// we'll retrieve a new response to cache and no hashes have read it yet
+#ifdef DEBUG
+			FB2K_console_formatter() << COMPONENT_NAME": This song has already read from this cached value, so re-querying";
+#endif
+		}
 	}
-	if (!cacheable || !pageCache.get(hashCode(url.get_ptr()), buffer)) {
+	cacheVal->readHashes.push_back(hash);	// mark hash as having read from this url already
+	if (!hit) {
 		// cache miss so query api
-//#ifdef DEBUG		// TODO: put this back
 		FB2K_console_formatter() << "Calling last.fm API: " << url;
-//#endif	
 		file::ptr response;
 		pfc::string8 buf;
 		try {
@@ -138,9 +150,9 @@ pfc::string8 Query::perform(abort_callback &callback) {
 			cacheable = false;
 		}
 
-		buffer = buf.get_ptr();
+		cacheVal->response = buf.get_ptr();
 		if (cacheable) {
-			pageCache.set(hashCode(url.get_ptr()), buffer);
+			pageCache.set(hashCode(url.get_ptr()), *cacheVal);
 		}
 	} else {
 #ifdef DEBUG
@@ -148,5 +160,5 @@ pfc::string8 Query::perform(abort_callback &callback) {
 #endif	
 	}
 
-	return buffer.c_str();
+	return cacheVal->response.c_str();
 }

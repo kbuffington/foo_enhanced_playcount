@@ -3,20 +3,22 @@
 #include <vector>
 #include "rapidjson/document.h"
 
+using namespace pfc;
+
 namespace foo_enhanced_playcount {
 	class Lastfm {
 	public:
-		Lastfm::Lastfm(pfc::string8 trackartist, pfc::string8 trackalbum, pfc::string8 tracktitle);
+		Lastfm::Lastfm(metadb_index_hash hash, string8 trackartist, string8 trackalbum, string8 tracktitle);
 		std::vector<t_filetimestamp> queryLastfm(t_filetimestamp lastPlay);
 
 	private:
-		//std::vector<t_filetimestamp> parseJson(const pfc::string8 buffer);
-		bool parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& playTimes);
+		bool parseJson(const string8 buffer, std::vector<t_filetimestamp>& playTimes, t_uint64 lastPlayed);
 
-		pfc::string8 artist;
-		pfc::string8 album;
-		pfc::string8 title;
-		pfc::string8 user;
+		string8 artist;
+		string8 album;
+		string8 title;
+		string8 user;
+		metadb_index_hash hash;
 		bool configured;
 	};
 }
