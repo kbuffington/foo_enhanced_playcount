@@ -17,10 +17,10 @@ using namespace pfc;
 
 PlaycountConfig const& config{ Config };
 
-Lastfm::Lastfm(metadb_index_hash hash, string8 trackartist, string8 trackalbum, string8 tracktitle) {
+Lastfm::Lastfm(metadb_index_hash hashVal, string8 trackartist, string8 trackalbum, string8 tracktitle) {
 	user = config.LastfmUsername;
 	if (strcmp(DefaultLastfmUsername, user)) {
-		hash = hash;
+		hash = hashVal;
 		artist << trackartist;
 		album << trackalbum;
 		title << tracktitle;
