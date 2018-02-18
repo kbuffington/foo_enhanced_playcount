@@ -17,12 +17,12 @@ using namespace pfc;
 bool initializedCache = false;
 extern PlaycountConfig const& config;
 
-struct cacheObj {
+struct CacheObj {
 	std::vector<metadb_index_hash> readHashes;
 	std::string response;
 };
 
-LruCache<int, cacheObj> pageCache(0);
+LruCache<int, CacheObj> pageCache(0);
 
 Query::Query(const char *method) {
 	if (!initializedCache) {
@@ -119,26 +119,26 @@ int hashCode(std::string text) {
 pfc::string8 Query::perform(metadb_index_hash hash, abort_callback &callback) {
 	static_api_ptr_t<http_client> http;
 	bool cacheable = true;
-	auto request = http->create_request("GET");
-
-	request->add_header("User-Agent", COMPONENT_NAME "/" COMPONENT_VERSION);
 
 	std::string buffer;
-	cacheObj * cacheVal = new cacheObj;
-	bool hit = pageCache.get(hashCode(url.get_ptr()), *cacheVal);
+	CacheObj cacheVal;
+	bool hit = pageCache.get(hashCode(url.get_ptr()), cacheVal);
 	if (hit) {
-		if (std::find(cacheVal->readHashes.begin(), cacheVal->readHashes.end(), hash) != cacheVal->readHashes.end()) {
+		if (std::find(cacheVal.readHashes.begin(), cacheVal.readHashes.end(), hash) != cacheVal.readHashes.end()) {
 			hit = false;					// this hash has read from this cache already, so clear cached value
-			cacheVal->readHashes.clear();	// we'll retrieve a new response to cache and no hashes have read it yet
+			cacheVal.readHashes.clear();	// we'll retrieve a new response to cache and no hashes have read it yet
 #ifdef DEBUG
 			FB2K_console_formatter() << COMPONENT_NAME": This song has already read from this cached value, so re-querying";
 #endif
 		}
 	}
-	cacheVal->readHashes.push_back(hash);	// mark hash as having read from this url already
+	cacheVal.readHashes.push_back(hash);	// mark hash as having read from this url already
 	if (!hit) {
 		// cache miss so query api
-		FB2K_console_formatter() << "Calling last.fm API: " << url;
+		auto request = http->create_request("GET");
+		request->add_header("User-Agent", COMPONENT_NAME "/" COMPONENT_VERSION);
+
+		FB2K_console_formatter() << "Querying last.fm: " << url;
 		file::ptr response;
 		pfc::string8 buf;
 		try {
@@ -150,15 +150,16 @@ pfc::string8 Query::perform(metadb_index_hash hash, abort_callback &callback) {
 			cacheable = false;
 		}
 
-		cacheVal->response = buf.get_ptr();
+		cacheVal.response = buf.get_ptr();
 		if (cacheable) {
-			pageCache.set(hashCode(url.get_ptr()), *cacheVal);
+			pageCache.set(hashCode(url.get_ptr()), cacheVal);
 		}
 	} else {
 #ifdef DEBUG
 		FB2K_console_formatter() << "Cache hit for: " << url;
 #endif	
+		pageCache.set(hashCode(url.get_ptr()), cacheVal);
 	}
 
-	return cacheVal->response.c_str();
+	return cacheVal.response.c_str();
 }
