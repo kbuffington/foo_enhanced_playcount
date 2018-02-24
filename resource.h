@@ -16,6 +16,8 @@
 #define IDC_CURRENT_CACHE_SIZE          1020
 #define IDC_CHECK2                      1021
 #define IDC_REMOVE_DUPLICATE_SCROBBLES  1021
+#define IDC_CHECK3                      1022
+#define IDC_COMPARE_ALBUM_FIELDS        1022
 
 // Next default values for new objects
 // 
@@ -23,7 +25,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        104
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1022
+#define _APS_NEXT_CONTROL_VALUE         1023
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

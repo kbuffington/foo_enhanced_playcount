@@ -32,6 +32,7 @@ public:
 	BEGIN_MSG_MAP(PreferencesDialog)
 		MSG_WM_INITDIALOG(OnInitDialog)
 		COMMAND_HANDLER_EX(IDC_ENABLE_LASTFM_PLAYCOUNTS, BN_CLICKED, OnEditChange)
+		COMMAND_HANDLER_EX(IDC_COMPARE_ALBUM_FIELDS, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_INCREMENT_WITH_PLAYCOUNT, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_REMOVE_DUPLICATE_SCROBBLES, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_EPC_LASTFM_NAME, EN_CHANGE, OnEditChange)
@@ -48,13 +49,14 @@ private:
 	preferences_page_callback::ptr const callback_;
 	PlaycountConfig& config_;
 	BindingCollection bindings_;
-	CToolTipCtrl tooltips[4];
+	CToolTipCtrl tooltips[5];
 	Query *prefQ = new Query("fake");	// used for setting underlying cache
 };
 
 BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lInitParam*/)
 {
 	bindings_.Bind(config_.EnableLastfmPlaycounts, m_hWnd, IDC_ENABLE_LASTFM_PLAYCOUNTS);
+	bindings_.Bind(config_.CompareAlbumFields, m_hWnd, IDC_COMPARE_ALBUM_FIELDS); 
 	bindings_.Bind(config_.IncrementLastfmWithPlaycount, m_hWnd, IDC_INCREMENT_WITH_PLAYCOUNT);
 	bindings_.Bind(config_.RemoveDuplicateLastfmScrobbles, m_hWnd, IDC_REMOVE_DUPLICATE_SCROBBLES);
 	bindings_.Bind(config_.LastfmUsername, m_hWnd, IDC_EPC_LASTFM_NAME);
@@ -78,7 +80,17 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 		L"is HIGHLY recommended that you use the foo_scrobble component instead of foo_audioscrobbler."
 		L"\n\nRequires a valid last.fm username be set below."
 	);
-	CreateTooltip(tooltips[1], m_hWnd, IDC_INCREMENT_WITH_PLAYCOUNT, 
+	CreateTooltip(tooltips[1], m_hWnd, IDC_COMPARE_ALBUM_FIELDS,
+		L"Compare Album field when retrieving scrobbles",
+		L"\nFor a scrobble to be counted as a play of this song, Artist, Title, and Album "
+		L"must exactly match the values stored in Last.fm. Disabling this setting will only compare "
+		L"Artist and Title against the scobbles that Last.fm has recorded. This will greatly increase "
+		L"the chance of a match, but will pick up scrobbles from live albums, singles, etc., as long "
+		L"the other fields are the same.\n\n"
+		L"If you scrobble a lot from poorly tagged sources such as Spotify or Youtube you might want "
+		L"to disable this setting."
+	);
+	CreateTooltip(tooltips[2], m_hWnd, IDC_INCREMENT_WITH_PLAYCOUNT, 
 		L"Increment last.fm playcount with %play_count%",
 		L"\nThe value of %play_count% automatically increments after 60 seconds of playtime, "
 		L"while scrobbling the current song only happens after the song is played. Because this "
@@ -91,7 +103,7 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 		L"Note: This setting only takes effect if the component has recorded at least one play "
 		L"from Last.fm."
 	);
-	CreateTooltip(tooltips[2], m_hWnd, IDC_REMOVE_DUPLICATE_SCROBBLES,
+	CreateTooltip(tooltips[3], m_hWnd, IDC_REMOVE_DUPLICATE_SCROBBLES,
 		L"Remove duplicate scrobbles from Last.fm",
 		L"\nLast.fm will sometimes report scrobbles of the same track with timestamps only "
 		L"one second apart. These are typically caused by your scrobbling program sending "
@@ -106,18 +118,17 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 		L"setting are applied going forward unless you clear last.fm plays for the specified "
 		L"tracks (right-click menu), and then re-retrieving them again."
 	);
-	CreateTooltip(tooltips[3], m_hWnd, IDC_LASTFM_CACHE_SIZE,
+	CreateTooltip(tooltips[4], m_hWnd, IDC_LASTFM_CACHE_SIZE,
 		L"Number of Last.fm responses to cache",
 		L"\nValid range: 0 - 50\n\n"
 		L"Because making calls to Last.fm is slow (and blocks the UI temporarily) the "
 		L"API responses are cached by the plugin. All Last.fm queries are by artist and not "
 		L"album or track, so when playing multiple songs by an artist, they can all reuse the "
-		L"the same API responses.\n\n"
-		L"The cache greatly speeds up Last.fm play retrieval, but can quickly eat up memory. "
-		L"A Last.fm response with the maximum 200 scrobbles will consume roughly 150kB of "
-		L"memory. The default value of 20 is a good trade off between speed and memory.\n\n"
-		L"This plugin implements a Least Recently Used cache, so calling a cached query will "
-		L"will make that cache object the last to be removed from the cache."
+		L"the same API responses. The cache greatly speeds up Last.fm play retrieval, but can "
+		L"increase the memory used by foobar.\n\n"
+		L"If a track attempts to read from the same cached response, that cache object is "
+		L"immediately invalidated and the URL will requery from Last.fm. This is so you can play "
+		L"a song or album on repeat and it will continue to retrieve the latest scrobbles."
 	);
 
 	return FALSE;

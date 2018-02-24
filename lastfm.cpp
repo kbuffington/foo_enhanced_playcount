@@ -101,7 +101,7 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 						pfc::string8 lfmTitle = static_cast<pfc::string8>(name.GetString());
 
 						if (al.IsObject() &&
-							fieldsEq(album, lfmAlbum) &&
+							(!config.CompareAlbumFields || fieldsEq(album, lfmAlbum)) &&
 							fieldsEq(title, lfmTitle)) {
 
 							if (!config.RemoveDuplicateLastfmScrobbles || time < lastRecordedTime - 29) {

@@ -15,7 +15,7 @@ PlaycountConfig::PlaycountConfig()
 	, IncrementLastfmWithPlaycount(true)
 	, RemoveDuplicateLastfmScrobbles(true)
 	, UnusedBool1(false)
-	, UnusedBool2(true)
+	, CompareAlbumFields(true)
 	, UnusedBool3(true)
 	, LastfmUsername(DefaultLastfmUsername)
 	, LruCacheSize(DefaultLruCacheSize)
@@ -33,7 +33,7 @@ void PlaycountConfig::get_data_raw(stream_writer* p_stream, abort_callback& p_ab
 	p_stream->write_lendian_t(IncrementLastfmWithPlaycount, p_abort);
 	p_stream->write_lendian_t(RemoveDuplicateLastfmScrobbles, p_abort);
 	p_stream->write_lendian_t(UnusedBool1, p_abort);
-	p_stream->write_lendian_t(UnusedBool2, p_abort);
+	p_stream->write_lendian_t(CompareAlbumFields, p_abort);
 	p_stream->write_lendian_t(UnusedBool3, p_abort);
 
 	p_stream->write_string(LastfmUsername, p_abort);
@@ -50,7 +50,7 @@ void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_ab
 	p_stream->read_lendian_t(cfg.IncrementLastfmWithPlaycount, p_abort);
 	p_stream->read_lendian_t(cfg.RemoveDuplicateLastfmScrobbles, p_abort);
 	p_stream->read_lendian_t(cfg.UnusedBool1, p_abort);
-	p_stream->read_lendian_t(cfg.UnusedBool2, p_abort);
+	p_stream->read_lendian_t(cfg.CompareAlbumFields, p_abort);
 	p_stream->read_lendian_t(cfg.UnusedBool3, p_abort);
 
 	p_stream->read_string(cfg.LastfmUsername, p_abort);
