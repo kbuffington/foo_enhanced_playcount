@@ -1,4 +1,4 @@
 #pragma once
 
 #define COMPONENT_NAME			"foo_enhanced_playcount"
-#define COMPONENT_VERSION		"2.0.0b5"
+#define COMPONENT_VERSION		"2.0.1"

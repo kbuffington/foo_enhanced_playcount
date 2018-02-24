@@ -55,7 +55,6 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(t_filetimestamp lastPlay) {
 		if (lastPlay > 0) {
 			// convert to unix timestamp and skip 29 seconds to avoid duplicate scrobbles
 			lastPlayed = fileTimeWtoU(lastPlay) + (config.RemoveDuplicateLastfmScrobbles ? 29 : 0);
-			//query->add_param("startTimestamp", (unsigned int) lastPlayed);
 		}
 		auto buf = query->perform(hash);
 
@@ -70,7 +69,6 @@ bool fieldsEq(pfc::string8 songInfo, const pfc::string8 value) {
 }
 
 bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& playTimes, t_uint64 lastPlayed) {
-	t_filetimestamp start = filetimestamp_from_system_timer();
 	Document d;
 	d.Parse(buffer);
 	int count;
@@ -127,10 +125,6 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 			}
 		}
 	}
-//#ifdef DEBUG
-//	t_filetimestamp end = filetimestamp_from_system_timer();
-//	FB2K_console_formatter() << "Parsing time Elapsed: " << ((float)(end - start)) / 10000000 << " seconds";
-//#endif
 
 	return done || count < 200;
 }
