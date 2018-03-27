@@ -171,18 +171,23 @@ namespace {
 		std::vector<t_filetimestamp> playTimes;
 		file_info_impl info;
 		if (config.EnableLastfmPlaycounts && p_item->get_info(info)) {
-			if (info.get_length() > 29) {	// you can't scrobble a song less than 30 seconds long, so don't check to see if it was scrobbled.
+			if (info.meta_exists("ARTIST") && info.meta_exists("TITLE") &&
+				(!config.CompareAlbumFields || info.meta_exists("ALBUM")) &&	// compare album fields if required
+				info.get_length() > 29) {	// you can't scrobble a song less than 30 seconds long, so don't check to see if it was scrobbled.
 				pfc::string8 time;
 #ifdef DEBUG
 				t_filetimestamp start = filetimestamp_from_system_timer();
 #endif
 				pfc::string8 artist;
-				pfc::string8 album;
-				pfc::string8 title;
+				pfc::string8 title; 
+				pfc::string8 album = "";
+				
 				artist = info.meta_get("ARTIST", 0);
-				album = info.meta_get("ALBUM", 0);
 				title = info.meta_get("TITLE", 0);
-
+				if (config.CompareAlbumFields) {
+					album = info.meta_get("ALBUM", 0);
+				}
+				
 				Lastfm *lfm = new Lastfm(hash, artist, album, title);
 				playTimes = lfm->queryLastfm(lastPlay);
 #ifdef DEBUG
