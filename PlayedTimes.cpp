@@ -379,6 +379,9 @@ namespace {
 		LASTFM_PLAYED_TIMES,
 		LASTFM_PLAYED_TIMES_JS,
 		LASTFM_PLAY_COUNT,
+		LASTFM_ADDED,
+		LASTFM_FIRST_PLAYED,
+		LASTFM_LAST_PLAYED,
 
 		MAX_NUM_FIELDS	// always last entry in this enum
 	};
@@ -410,6 +413,15 @@ namespace {
 				case LASTFM_PLAY_COUNT:
 					out = "lastfm_play_count";
 					break;
+				case LASTFM_ADDED:
+					out = "lastfm_added";
+					break;
+				case LASTFM_FIRST_PLAYED:
+					out = "lastfm_first_played";
+					break;
+				case LASTFM_LAST_PLAYED:
+					out = "lastfm_last_played";
+					break;
 			}
 		}
 		bool process_field(t_uint32 index, metadb_handle * handle, titleformat_text_out * out) {
@@ -418,6 +430,7 @@ namespace {
 			if (!g_client->hashHandle(handle, hash)) return false;
 			std::vector<t_filetimestamp> playTimes;
 			file_info_impl info;
+			unsigned int count;
 
 			switch (index) {
 				case PLAYED_TIMES:
@@ -454,8 +467,29 @@ namespace {
 					}
 					break;
 				case LASTFM_PLAY_COUNT:
-					auto count = playcount_get(hash, true);
+					count = playcount_get(hash, true);
 					out->write_int(titleformat_inputtypes::meta, count);
+					break;
+				case LASTFM_ADDED:
+				case LASTFM_FIRST_PLAYED:
+					playTimes = playtimes_get(hash, true);
+					if (!playTimes.size()) {
+						out->write(titleformat_inputtypes::meta, "N/A");
+						return false;
+					} else {
+						out->write(titleformat_inputtypes::meta,
+							format_filetimestamp::format_filetimestamp(playTimes.front()));
+					}
+					break;
+				case LASTFM_LAST_PLAYED:
+					playTimes = playtimes_get(hash, true);
+					if (!playTimes.size()) {
+						out->write(titleformat_inputtypes::meta, "N/A");
+						return false;
+					} else {
+						out->write(titleformat_inputtypes::meta,
+							format_filetimestamp::format_filetimestamp(playTimes.back()));
+					}
 					break;
 			}
 			return true;
