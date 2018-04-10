@@ -26,15 +26,7 @@ LruCache<int, CacheObj> pageCache(0);
 
 Query::Query(const char *method) {
 	if (!initializedCache) {
-		if (strlen(config.LruCacheSize.c_str())) {
-			try {
-				pageCache.setCacheSize(stoi(config.LruCacheSize.c_str()));
-			} catch (...) {
-				pageCache.setCacheSize(stoi(DefaultLruCacheSize));
-			}
-		} else {
-			pageCache.setCacheSize(stoi(DefaultLruCacheSize));
-		}
+		pageCache.setCacheSize(config.CacheSize);
 		initializedCache = true;
 	}
 	url << lastfmApiBase << method;

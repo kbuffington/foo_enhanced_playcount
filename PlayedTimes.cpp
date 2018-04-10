@@ -6,17 +6,6 @@
 #include "globals.h"
 #include "PlaycountConfig.h"
 
-/*
-========================================================================
-   Sample implementation of metadb_index_client and a rating database.
-========================================================================
-
-The rating data is all maintained by metadb backend, we only present and alter it when asked to.
-Relevant classes:
-metadb_index_client_impl - turns track info into a database key to which our data gets pinned.
-init_stage_callback_impl - initializes ourselves at the proper moment of the app lifetime.
-metadb_display_field_provider_impl - publishes %foo_sample_rating% via title formatting.
-*/
 
 using namespace foo_enhanced_playcount;
 using namespace pfc;
@@ -26,10 +15,6 @@ namespace {
 	std::string t_uint64_to_string(t_uint64 value, bool jsTimestamp);
 
 	PlaycountConfig const& config{ Config };
-
-	// Replace with your own when reusing.
-	// Always recreate guid_foo_enhanced_playcount_index if your metadb_index_client_impl hashing semantics changed or else you run into inconsistent/nonsensical data.
-	static const GUID guid_foo_enhanced_playcount_index = { 0xc1bd000, 0x43e7, 0x4078, { 0xb8, 0x85, 0x48, 0xee, 0x42, 0x49, 0xde, 0xc2 } };
 
 	// Pattern by which we pin our data to.
 	// If multiple songs in the library evaluate to the same string,
@@ -546,5 +531,92 @@ void GetLastfmScrobbles(metadb_handle_list_cref items) {
 		else {
 			popup_message::g_complain("Could not retrieve last.fm scrobbles", e);
 		}
+	}
+}
+
+struct hash_record {
+	metadb_index_hash hash;
+	metadb_handle_ptr mdb_handle;
+	record_t record;
+	hash_record(metadb_handle_ptr mdb_ptr) : mdb_handle(mdb_ptr) {}
+};
+
+class metadb_refresh_callback : public main_thread_callback {
+private:
+	metadb_index_hash m_hash;
+	record_t m_record;
+
+public:
+	metadb_refresh_callback(metadb_index_hash hash, record_t record) : m_hash(hash), m_record(record) {}
+
+	virtual void callback_run()
+	{
+		setRecord(m_hash, m_record);
+		g_api->dispatch_refresh(guid_foo_enhanced_playcount_index, m_hash);
+	}
+};
+
+class get_lastfm_scrobbles : public threaded_process_callback {
+public:
+	get_lastfm_scrobbles(std::vector<hash_record> items) : m_items(items) {}
+	void on_init(HWND p_wnd) {}
+	void run(threaded_process_status & p_status, abort_callback & p_abort) {
+		try {
+			for (size_t t = 0; t < m_items.size(); t++) {
+				p_status.set_progress(t, m_items.size());
+				p_status.set_item_path(m_items[t].mdb_handle->get_path());
+
+				record_t record = m_items[t].record;
+				std::vector<t_filetimestamp> playTimes;
+				playTimes = getLastFmPlaytimes(m_items[t].mdb_handle, m_items[t].hash,
+					m_items[t].record.lastfmPlaytimes.size() ? m_items[t].record.lastfmPlaytimes.back() : 0);
+				record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
+				record.numLastfmPlays = record.lastfmPlaytimes.size();
+
+				static_api_ptr_t<main_thread_callback_manager> cm;
+				service_ptr_t<metadb_refresh_callback> update_cb =
+					new service_impl_t<metadb_refresh_callback>(m_items[t].hash, record);
+				cm->add_callback(update_cb);
+
+			}
+		} catch (std::exception const & e) {
+			m_failMsg = e.what();
+		}
+	}
+	void on_done(HWND p_wnd, bool p_was_aborted) {
+		if (!p_was_aborted) {
+			if (!m_failMsg.is_empty()) {
+				popup_message::g_complain("Could not retrieve last.fm scrobbles", m_failMsg);
+			} else {
+				// finished succesfully
+			}
+		}
+	}
+private:
+	pfc::string8 m_failMsg;
+	const std::vector<hash_record> m_items;
+};
+
+void GetLastfmScrobblesThreaded(metadb_handle_list_cref items) {
+	int showProgress = threaded_process::flag_show_progress;
+	try {
+		if (items.get_count() == 0) throw pfc::exception_invalid_params();
+		if (items.get_count() == 1) showProgress = 0;
+
+		std::vector<hash_record> hash_record_list;
+		for (size_t t = 0; t < items.get_count(); t++) {
+			hash_record_list.push_back(hash_record(items[t]));
+			g_client->hashHandle(items[t], hash_record_list[t].hash);
+			hash_record_list[t].record = getRecord(hash_record_list[t].hash);
+		}
+
+		service_ptr_t<threaded_process_callback> cb = new service_impl_t<get_lastfm_scrobbles>(hash_record_list);
+		static_api_ptr_t<threaded_process>()->run_modeless(
+			cb,
+			showProgress | threaded_process::flag_show_item | threaded_process::flag_show_delayed,
+			core_api::get_main_window(),
+			COMPONENT_NAME": Retrieving last.fm scrobbles");
+	} catch (std::exception const & e) {
+		popup_message::g_complain("Could not retrieve last.fm scrobbles", e);
 	}
 }

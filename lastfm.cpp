@@ -31,7 +31,7 @@ Lastfm::Lastfm(metadb_index_hash hashVal, string8 trackartist, string8 trackalbu
 
 #if 0	/* test values for large results */
 	artist = "Eric Johnson";
-	album = "Europe Live";
+	album = "Up Close";
 	title = "Fatdaddy";
 	user = "joyjoykid";
 	configured = true;
@@ -43,8 +43,12 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(t_filetimestamp lastPlay) {
 	t_uint64 lastPlayed = 0;
 	bool done = false;
 	int page = 1;
+	int maxPages = stoi(config.LruCacheSize.c_str()) - 1;	// limit requests to greater of 5 or cache size - 1
+	if (maxPages < 5) {
+		maxPages = 5;
+	}
 
-	while (configured && !done && page <= 5) {	// limit to last 1000 last.fm plays for artist
+	while (configured && !done && page <= maxPages) {
 		Query *query = new Query();
 		query->add_apikey();
 		query->add_param("user", user);

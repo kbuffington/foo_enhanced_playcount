@@ -6,7 +6,6 @@
 static const GUID context_menu_guid = { 0xb09794fd, 0x65c0, 0x4c1d,{ 0x99, 0xeb, 0x1a, 0x56, 0x74, 0xc9, 0xa, 0xd3 } };
 
 
-
 // Switch to contextmenu_group_factory to embed your commands in the root menu but separated from other commands.
 
 //static contextmenu_group_factory g_mygroup(guid_mygroup, contextmenu_groups::root, 0);
@@ -14,7 +13,7 @@ static contextmenu_group_popup_factory g_mygroup(context_menu_guid, contextmenu_
 
 //static void RunTestCommand(metadb_handle_list_cref data);
 void ClearLastFmRecords(metadb_handle_list_cref items); //played_times.cpp
-void GetLastfmScrobbles(metadb_handle_list_cref items); //played_times.cpp
+void GetLastfmScrobblesThreaded(metadb_handle_list_cref items); //played_times.cpp
 
 // Simple context menu item class.
 class myitem : public contextmenu_item_simple {
@@ -39,7 +38,7 @@ public:
 				ClearLastFmRecords(p_data);
 				break;
 			case cmd_get_scrobbles:
-				GetLastfmScrobbles(p_data);
+				GetLastfmScrobblesThreaded(p_data);
 				break;
 			default:
 				uBugCheck();
