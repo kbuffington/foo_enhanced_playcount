@@ -3,7 +3,7 @@
 namespace foo_enhanced_playcount {
 
 	__declspec(selectany) extern char const* const DefaultLastfmUsername = "<none>";
-	__declspec(selectany) extern char const* const DefaultLruCacheSize = "20";
+	__declspec(selectany) extern char const* const DefaultLruCacheSize = "40";
 
 	class PlaycountConfig : public cfg_var {
 	public:
@@ -23,12 +23,14 @@ namespace foo_enhanced_playcount {
 		pfc::string8 UnusedStr2;
 		pfc::string8 UnusedStr3;
 
+		unsigned int CacheSize;
+
 	private:
 		virtual void get_data_raw(stream_writer* p_stream, abort_callback& p_abort) override;
 		virtual void set_data_raw(stream_reader* p_stream, t_size p_sizehint,
 			abort_callback& p_abort) override;
 
-		static unsigned const Version = 1;
+		static unsigned const Version = 2;
 	};
 
 	class NOVTABLE PlaycountConfigNotify : public service_base {

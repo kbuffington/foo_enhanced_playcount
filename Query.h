@@ -16,7 +16,6 @@ namespace foo_enhanced_playcount {
 	private:
 		inline char to_hex(char);
 		pfc::string8 url_encode(pfc::string8 in);
-
 		pfc::string8 url;
 	};
 }

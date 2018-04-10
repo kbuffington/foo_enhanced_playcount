@@ -37,6 +37,11 @@ void PlaycountConfig::get_data_raw(stream_writer* p_stream, abort_callback& p_ab
 	p_stream->write_lendian_t(UnusedBool3, p_abort);
 
 	p_stream->write_string(LastfmUsername, p_abort);
+	CacheSize = std::stoi(LruCacheSize.c_str());
+	if (CacheSize > 50) {
+		LruCacheSize = "50";
+		CacheSize = 50;
+	}
 	p_stream->write_string(LruCacheSize, p_abort);
 	p_stream->write_string(UnusedStr1, p_abort);
 	p_stream->write_string(UnusedStr2, p_abort);
@@ -44,7 +49,7 @@ void PlaycountConfig::get_data_raw(stream_writer* p_stream, abort_callback& p_ab
 
 }
 
-void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_abort)
+void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_abort, unsigned version)
 {
 	p_stream->read_lendian_t(cfg.EnableLastfmPlaycounts, p_abort);
 	p_stream->read_lendian_t(cfg.IncrementLastfmWithPlaycount, p_abort);
@@ -59,6 +64,13 @@ void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_ab
 	p_stream->read_string(cfg.UnusedStr2, p_abort);
 	p_stream->read_string(cfg.UnusedStr3, p_abort);
 
+	if (version == 1 && std::stoi(cfg.LruCacheSize.c_str()) < 40) {
+		cfg.LruCacheSize = DefaultLruCacheSize; // increase default cache size
+		cfg.CacheSize = std::stoi(DefaultLruCacheSize);
+	} else {
+		cfg.CacheSize = std::stoi(cfg.LruCacheSize.c_str());
+	}
+
 }
 
 void PlaycountConfig::set_data_raw(stream_reader* p_stream, t_size p_sizehint,
@@ -69,7 +81,8 @@ void PlaycountConfig::set_data_raw(stream_reader* p_stream, t_size p_sizehint,
 
     switch (version) {
     case 1:
-        SetData(*this, p_stream, p_abort);
+	case 2:
+		SetData(*this, p_stream, p_abort, version);
         break;
     }
 
