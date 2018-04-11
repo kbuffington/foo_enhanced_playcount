@@ -90,7 +90,7 @@ pfc::string8 Query::url_encode(pfc::string8 in) {
 
 	for (register const char *tmp = in; *tmp != '\0'; tmp++) {
 		auto c = static_cast<unsigned char>(*tmp);
-		if (isalnum(c)) {
+		if (isalnum(c) || c == '_') {
 			out.add_char(c);
 		} else if (isspace(c)) {
 			out.add_char('+');
