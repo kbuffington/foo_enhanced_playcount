@@ -28,7 +28,7 @@ public:
 	void get_item_name(unsigned p_index,pfc::string_base & p_out) {
 		switch(p_index) {
 			case cmd_clear_lastfm: p_out = "Clear saved last.fm plays"; break;
-			case cmd_get_scrobbles: p_out = "Get last.fm scrobbles (max 50 tracks)"; break;
+			case cmd_get_scrobbles: p_out = "Get last.fm scrobbles"; break;
 			default: uBugCheck(); // should never happen unless somebody called us with invalid parameters - bail
 		}
 	}

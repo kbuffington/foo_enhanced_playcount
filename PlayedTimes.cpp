@@ -600,7 +600,7 @@ private:
 void GetLastfmScrobblesThreaded(metadb_handle_list_cref items) {
 	int showProgress = threaded_process::flag_show_progress;
 	try {
-		if (items.get_count() == 0) throw pfc::exception_invalid_params();
+		if (items.get_count() == 0 || items.get_count() > 1000) throw pfc::exception_invalid_params();
 		if (items.get_count() == 1) showProgress = 0;
 
 		std::vector<hash_record> hash_record_list;
@@ -617,6 +617,10 @@ void GetLastfmScrobblesThreaded(metadb_handle_list_cref items) {
 			core_api::get_main_window(),
 			COMPONENT_NAME": Retrieving last.fm scrobbles");
 	} catch (std::exception const & e) {
-		popup_message::g_complain("Could not retrieve last.fm scrobbles", e);
+		if (items.get_count() > 1000) {
+			popup_message::g_complain("Can only retrieve scrobbles of 1000 tracks at a time", e);
+		} else {
+			popup_message::g_complain("Could not retrieve last.fm scrobbles", e);
+		}
 	}
 }
