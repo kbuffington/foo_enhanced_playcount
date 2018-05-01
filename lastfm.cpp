@@ -68,8 +68,38 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(t_filetimestamp lastPlay) {
 	return playTimes;
 }
 
+void remove_punct(char *p)
+{
+	char *src = p, *dst = p;
+
+	while (*src) {
+		if (ispunct((unsigned char)*src) && *src != '&' && *src != '(' && *src != ')') {
+			/* Skip this character */
+			src++;
+		} else if (src == dst) {
+			/* Increment both pointers without copying */
+			src++;
+			dst++;
+		} else {
+			/* Copy character */
+			*dst++ = *src++;
+		}
+	}
+
+	*dst = 0;
+}
+
 bool fieldsEq(pfc::string8 songInfo, const pfc::string8 value) {
-	return _stricmp(songInfo, value) == 0;
+	char * info; 
+	char * val; 
+	info = (char*)malloc(sizeof (char) * (songInfo.length() + 1));
+	val = (char*)malloc(sizeof(char) * (value.length() + 1));
+	strcpy_s(info, songInfo.length() + 1, songInfo.c_str());
+	strcpy_s(val, value.length() + 1, value.c_str());
+	remove_punct(info);
+	remove_punct(val);
+
+	return _stricmp(info, val) == 0;
 }
 
 bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& playTimes, t_uint64 lastPlayed) {

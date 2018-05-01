@@ -10,6 +10,8 @@
 using namespace foo_enhanced_playcount;
 using namespace pfc;
 
+void GetLastfmScrobblesThreaded(metadb_handle_list_cref items);
+
 namespace {
 
 	std::string t_uint64_to_string(t_uint64 value, bool jsTimestamp);
@@ -137,6 +139,7 @@ namespace {
 	static void setRecord(metadb_index_hash hash, record_t record) {
 		unsigned int buf[10004];
 		size_t size = 0;
+		record.version = kCurrVersion;
 		memcpy(buf, &record, 4 * sizeof(int));
 		size += 4;
 		if (record.foobarPlaytimes.size()) {
@@ -218,62 +221,84 @@ namespace {
 		return count;
 	}
 
-	titleformat_object::ptr playback_statistics_script;
-
-	static void playtime_set(metadb_index_hash hash, record_t record, t_filetimestamp fp, t_filetimestamp lp) {
-		t_filetimestamp time = filetimestamp_from_system_timer();
-		time /= 10000000;
-		time *= 10000000;
-		record.version = kCurrVersion;
-
-		if (record.numFoobarPlays == 0 && fp) {	// add first played and last played if this is the first time we've recorded a play for this file
-			record.foobarPlaytimes.push_back(fp);
-			if (fp != lp) {
-				record.foobarPlaytimes.push_back(lp);
-			}
-		}
-		record.foobarPlaytimes.push_back(time);
-		record.numFoobarPlays = record.foobarPlaytimes.size();
-		record.numLastfmPlays = record.lastfmPlaytimes.size();
-
-		setRecord(hash, record);
-	}
+	titleformat_object::ptr first_and_last_played_script;
+	titleformat_object::ptr date_added_script;
 
 	class my_playback_statistics_collector : public playback_statistics_collector {
 	public:
 		void on_item_played(metadb_handle_ptr p_item) {
-			if (playback_statistics_script.is_empty()) {
-				static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(playback_statistics_script, "%first_played%~%last_played%");
-			}
-			pfc::string_formatter p_out;
-
 			metadb_index_hash hash;
 			g_client->hashHandle(p_item, hash);
 
-			p_item->format_title(NULL, p_out, playback_statistics_script, NULL);
-			t_size divider = p_out.find_first('~');
-			char firstPlayed[25], lastPlayed[25];
-			strncpy_s(firstPlayed, p_out.toString(), divider);
-			strcpy_s(lastPlayed, p_out.toString() + divider + 1);
-			t_filetimestamp fp = 0, lp = 0;
-
-			if (strcmp(firstPlayed, "N/A")) {
-				fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
-				lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
-			}
-
 			record_t record = getRecord(hash);
-			std::vector<t_filetimestamp> playTimes;
-			playTimes = getLastFmPlaytimes(p_item, hash, 
-				record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
+			t_filetimestamp time = filetimestamp_from_system_timer();
+			time /= 10000000;
+			time *= 10000000;
+			record.foobarPlaytimes.push_back(time);
+			record.numFoobarPlays = record.foobarPlaytimes.size();
 
-			record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
-
-			playtime_set(hash, record, fp, lp);
+			setRecord(hash, record);
 		}
 	};
 
 	static playback_statistics_collector_factory_t<my_playback_statistics_collector> g_my_stat_collector;
+
+	class my_play_callback : public play_callback_static {
+	public:
+		void on_playback_new_track(metadb_handle_ptr p_track) {
+			metadb_index_hash hash;
+			g_client->hashHandle(p_track, hash);
+			t_filetimestamp fp = 0, lp = 0;
+
+			record_t record = getRecord(hash);
+			if (record.numFoobarPlays == 0) {
+				if (first_and_last_played_script.is_empty()) {
+					static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(first_and_last_played_script, "%first_played%~%last_played%");
+				}
+				pfc::string_formatter p_out;
+
+				p_track->format_title(NULL, p_out, first_and_last_played_script, NULL);
+				t_size divider = p_out.find_first('~');
+				char firstPlayed[25], lastPlayed[25];
+				strncpy_s(firstPlayed, p_out.toString(), divider);
+				strcpy_s(lastPlayed, p_out.toString() + divider + 1);
+
+				if (strcmp(firstPlayed, "N/A")) {
+					fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
+					lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
+
+					record.foobarPlaytimes.push_back(fp);
+					if (fp != lp) {
+						record.foobarPlaytimes.push_back(lp);
+					}
+					record.numFoobarPlays = record.foobarPlaytimes.size();
+					setRecord(hash, record);
+				}
+			}
+
+			if (config.EnableLastfmPlaycounts) {
+				metadb_handle_list p_list;
+				p_list.add_item(p_track);
+				GetLastfmScrobblesThreaded(p_list);
+			}
+		}
+		void on_playback_starting(play_control::t_track_command p_command, bool p_paused) {}
+		void on_playback_stop(play_control::t_stop_reason p_reason) {}
+		void on_playback_seek(double p_time) {}
+		void on_playback_pause(bool p_state) {}
+		void on_playback_edited(metadb_handle_ptr p_track) {}
+		void on_playback_dynamic_info(const file_info & p_info) {}
+		void on_playback_dynamic_info_track(const file_info & p_info) {}
+		void on_playback_time(double p_time) {}
+		void on_volume_change(float p_new_val) {}
+
+		/* The play_callback_manager enumerates play_callback_static services and registers them automatically. We only have to provide the flags indicating which callbacks we want. */
+		virtual unsigned get_flags() {
+			return flag_on_playback_new_track;
+		}
+	};
+
+	static service_factory_single_t<my_play_callback> g_play_callback_static_factory;
 
 	pfc::string8 meta_get_if_exists(const file_info * info, const char* key, const char* default) {
 		if (info->meta_exists(key)) {
@@ -368,10 +393,15 @@ namespace {
 		LASTFM_FIRST_PLAYED,
 		LASTFM_LAST_PLAYED,
 
+		FIRST_PLAYED_ENHANCED,
+		LAST_PLAYED_ENHANCED,
+		ADDED_ENHANCED,
+
 		MAX_NUM_FIELDS	// always last entry in this enum
 	};
 
-	// Provider of the %foo_sample_rating% field
+#define kNoDate 199999999990000000
+
 	class metadb_display_field_provider_impl : public metadb_display_field_provider {
 	public:
 		t_uint32 get_field_count() {
@@ -407,13 +437,23 @@ namespace {
 				case LASTFM_LAST_PLAYED:
 					out = "lastfm_last_played";
 					break;
+				case FIRST_PLAYED_ENHANCED:
+					out = "first_played_enhanced";
+					break;
+				case LAST_PLAYED_ENHANCED:
+					out = "last_played_enhanced";
+					break;
+				case ADDED_ENHANCED:
+					out = "added_enhanced";
+					break;
 			}
 		}
 		bool process_field(t_uint32 index, metadb_handle * handle, titleformat_text_out * out) {
 			PFC_ASSERT(index >= 0 && index < MAX_NUM_FIELDS);
 			metadb_index_hash hash;
 			if (!g_client->hashHandle(handle, hash)) return false;
-			std::vector<t_filetimestamp> playTimes;
+			std::vector<t_filetimestamp> playTimes, lastfmPlayTimes;
+			t_filetimestamp fbTime = 0, lastfmTime = 0, firstPlayed = 0, lastPlayed = 0;
 			file_info_impl info;
 			unsigned int count;
 
@@ -476,6 +516,74 @@ namespace {
 							format_filetimestamp::format_filetimestamp(playTimes.back()));
 					}
 					break;
+				case FIRST_PLAYED_ENHANCED:
+					playTimes = playtimes_get(hash, false);
+					lastfmPlayTimes = playtimes_get(hash, true);
+					fbTime = lastfmTime = kNoDate;
+					if (playTimes.size()) {
+						fbTime = playTimes.front();
+					}
+					if (lastfmPlayTimes.size()) {
+						lastfmTime = lastfmPlayTimes.front();
+					}
+					if (fbTime < lastfmTime) {
+						firstPlayed = fbTime;
+					} else {
+						firstPlayed = lastfmTime;
+					}
+					if (firstPlayed != kNoDate) {
+						out->write(titleformat_inputtypes::meta,
+							format_filetimestamp::format_filetimestamp(firstPlayed));
+					} else {
+						out->write(titleformat_inputtypes::meta, "N/A");
+						return false;
+					}
+					break;
+				case LAST_PLAYED_ENHANCED:
+					playTimes = playtimes_get(hash, false);
+					lastfmPlayTimes = playtimes_get(hash, true);
+					if (playTimes.size()) {
+						fbTime = playTimes.back();
+					}
+					if (lastfmPlayTimes.size()) {
+						lastfmTime = lastfmPlayTimes.back();
+					}
+					if (fbTime > lastfmTime) {
+						lastPlayed = fbTime;
+					} else {
+						lastPlayed = lastfmTime;
+					}
+					if (lastPlayed) {
+						out->write(titleformat_inputtypes::meta,
+							format_filetimestamp::format_filetimestamp(lastPlayed));
+					} else {
+						out->write(titleformat_inputtypes::meta, "N/A");
+						return false;
+					}
+					break;
+				case ADDED_ENHANCED:
+					if (date_added_script.is_empty()) {
+						static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(date_added_script, "%added%");
+					}
+					pfc::string_formatter p_out;
+
+					handle->format_title(NULL, p_out, date_added_script, NULL);
+					
+					if (strcmp(p_out.toString(), "N/A")) {
+						t_filetimestamp added = foobar2000_io::filetimestamp_from_string(p_out);
+
+						lastfmPlayTimes = playtimes_get(hash, true);
+						if (lastfmPlayTimes.size() && lastfmPlayTimes.front() < added) {
+							out->write(titleformat_inputtypes::meta,
+								format_filetimestamp::format_filetimestamp(lastfmPlayTimes.front()));
+						} else {
+							out->write(titleformat_inputtypes::meta,
+								format_filetimestamp::format_filetimestamp(added));
+						}
+					} else {
+						return false;	// can we get here?
+					}
+					break;
 			}
 			return true;
 		}
@@ -506,34 +614,6 @@ void ClearLastFmRecords(metadb_handle_list_cref items) {
 	}
 }
 
-void GetLastfmScrobbles(metadb_handle_list_cref items) {
-	try {
-		if (items.get_count() == 0 || items.get_count() > 50) throw pfc::exception_invalid_params();
-		for (size_t t = 0; t < items.get_count(); t++) {
-			metadb_index_hash hash;
-			g_client->hashHandle(items[t], hash);
-
-			record_t record = getRecord(hash);
-			std::vector<t_filetimestamp> playTimes;
-			playTimes = getLastFmPlaytimes(items[t], hash, 
-				record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
-			record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
-			record.numLastfmPlays = record.lastfmPlaytimes.size();
-
-			setRecord(hash, record);
-			g_api->dispatch_refresh(guid_foo_enhanced_playcount_index, hash);
-		}
-	}
-	catch (std::exception const & e) {
-		if (items.get_count() > 50) {
-			popup_message::g_complain("Can only retrieve scrobbles of 50 tracks at a time.", e);
-		}
-		else {
-			popup_message::g_complain("Could not retrieve last.fm scrobbles", e);
-		}
-	}
-}
-
 struct hash_record {
 	metadb_index_hash hash;
 	metadb_handle_ptr mdb_handle;
@@ -551,8 +631,10 @@ public:
 
 	virtual void callback_run()
 	{
-		setRecord(m_hash, m_record);
-		g_api->dispatch_refresh(guid_foo_enhanced_playcount_index, m_hash);
+		if (m_record.numLastfmPlays > 0) {
+			setRecord(m_hash, m_record);
+			g_api->dispatch_refresh(guid_foo_enhanced_playcount_index, m_hash);
+		}
 	}
 };
 
