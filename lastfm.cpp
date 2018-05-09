@@ -4,6 +4,7 @@
 #include "lastfm.h"
 #include <sstream>
 #include <vector>
+#include <locale>
 #include "resource.h"
 #include "PlaycountConfig.h"
 
@@ -71,9 +72,10 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(t_filetimestamp lastPlay) {
 void remove_punct(char *p)
 {
 	char *src = p, *dst = p;
+	std::locale loc;
 
 	while (*src) {
-		if (ispunct((unsigned char)*src) && *src != '&' && *src != '(' && *src != ')') {
+		if (std::ispunct((unsigned char)*src, loc) && *src != '&' && *src != '(' && *src != ')') {
 			/* Skip this character */
 			src++;
 		} else if (src == dst) {
@@ -92,14 +94,14 @@ void remove_punct(char *p)
 bool fieldsEq(pfc::string8 songInfo, const pfc::string8 value) {
 	char * info; 
 	char * val; 
-	info = (char*)malloc(sizeof (char) * (songInfo.length() + 1));
+	info = (char*)malloc(sizeof(char) * (songInfo.length() + 1));
 	val = (char*)malloc(sizeof(char) * (value.length() + 1));
 	strcpy_s(info, songInfo.length() + 1, songInfo.c_str());
 	strcpy_s(val, value.length() + 1, value.c_str());
 	remove_punct(info);
 	remove_punct(val);
 
-	return _stricmp(info, val) == 0;
+	return stringCompareCaseInsensitive(info, val) == 0;
 }
 
 bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& playTimes, t_uint64 lastPlayed) {
