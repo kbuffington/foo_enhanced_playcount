@@ -103,7 +103,8 @@ namespace {
 	static record_t getRecord(metadb_index_hash hash) {
 		unsigned int buf[10004];
 		record_t record;
-		int size = g_api->get_user_data_here(guid_foo_enhanced_playcount_index, hash, &buf, sizeof(buf));
+		int size = 0;
+		if (g_api != NULL) size = g_api->get_user_data_here(index_guid, hash, &buf, sizeof(buf));
 		if (!size) {
 			return record;
 		}
