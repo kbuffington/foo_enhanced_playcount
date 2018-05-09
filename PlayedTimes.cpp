@@ -223,6 +223,8 @@ namespace {
 
 	titleformat_object::ptr first_and_last_played_script;
 	titleformat_object::ptr date_added_script;
+	titleformat_object::ptr first_played_script;
+	titleformat_object::ptr last_played_script;
 
 	class my_playback_statistics_collector : public playback_statistics_collector {
 	public:
@@ -535,8 +537,20 @@ namespace {
 						out->write(titleformat_inputtypes::meta,
 							format_filetimestamp::format_filetimestamp(firstPlayed));
 					} else {
-						out->write(titleformat_inputtypes::meta, "N/A");
-						return false;
+						if (first_played_script.is_empty()) {
+							static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(first_played_script, "%first_played%");
+						}
+						pfc::string_formatter p_out;
+						handle->format_title(NULL, p_out, first_played_script, NULL);
+
+						if (strcmp(p_out.toString(), "N/A")) {
+							t_filetimestamp first_played = foobar2000_io::filetimestamp_from_string(p_out);
+							out->write(titleformat_inputtypes::meta,
+								format_filetimestamp::format_filetimestamp(first_played));
+						} else {
+							out->write(titleformat_inputtypes::meta, "N/A");
+							return false;
+						}
 					}
 					break;
 				case LAST_PLAYED_ENHANCED:
@@ -557,8 +571,20 @@ namespace {
 						out->write(titleformat_inputtypes::meta,
 							format_filetimestamp::format_filetimestamp(lastPlayed));
 					} else {
-						out->write(titleformat_inputtypes::meta, "N/A");
-						return false;
+						if (last_played_script.is_empty()) {
+							static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(last_played_script, "%last_played%");
+						}
+						pfc::string_formatter p_out;
+						handle->format_title(NULL, p_out, last_played_script, NULL);
+
+						if (strcmp(p_out.toString(), "N/A")) {
+							t_filetimestamp last_played = foobar2000_io::filetimestamp_from_string(p_out);
+							out->write(titleformat_inputtypes::meta,
+								format_filetimestamp::format_filetimestamp(last_played));
+						} else {
+							out->write(titleformat_inputtypes::meta, "N/A");
+							return false;
+						}
 					}
 					break;
 				case ADDED_ENHANCED:
