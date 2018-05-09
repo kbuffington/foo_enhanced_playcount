@@ -681,6 +681,31 @@ public:
 				record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
 				record.numLastfmPlays = record.lastfmPlaytimes.size();
 
+				if (record.numFoobarPlays == 0) {
+					t_filetimestamp fp = 0, lp = 0;
+					if (first_and_last_played_script.is_empty()) {
+						static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(first_and_last_played_script, "%first_played%~%last_played%");
+					}
+					pfc::string_formatter p_out;
+
+					m_items[t].mdb_handle->format_title(NULL, p_out, first_and_last_played_script, NULL);
+					t_size divider = p_out.find_first('~');
+					char firstPlayed[25], lastPlayed[25];
+					strncpy_s(firstPlayed, p_out.toString(), divider);
+					strcpy_s(lastPlayed, p_out.toString() + divider + 1);
+
+					if (strcmp(firstPlayed, "N/A")) {
+						fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
+						lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
+
+						record.foobarPlaytimes.push_back(fp);
+						if (fp != lp) {
+							record.foobarPlaytimes.push_back(lp);
+						}
+						record.numFoobarPlays = record.foobarPlaytimes.size();
+					}
+				}
+
 				static_api_ptr_t<main_thread_callback_manager> cm;
 				service_ptr_t<metadb_refresh_callback> update_cb =
 					new service_impl_t<metadb_refresh_callback>(m_items[t].hash, record);
@@ -728,3 +753,4 @@ void GetLastfmScrobblesThreaded(metadb_handle_list_cref items) {
 		popup_message::g_complain("Could not retrieve last.fm scrobbles", e);
 	}
 }
+
