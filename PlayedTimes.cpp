@@ -5,14 +5,16 @@
 #include "util.h"
 #include "globals.h"
 #include "PlaycountConfig.h"
+#include "PlayedTimes.h"
 
 
 using namespace foo_enhanced_playcount;
 using namespace pfc;
+using namespace enhanced_playcount;
 
 void GetLastfmScrobblesThreaded(metadb_handle_list_cref items);
 
-namespace {
+namespace enhanced_playcount {
 
 	std::string t_uint64_to_string(t_uint64 value, bool jsTimestamp);
 
@@ -34,22 +36,48 @@ namespace {
 		return obj;
 	}
 
+	void mb_to_lower(const char * src, pfc::string_base & dest) {
+		for (;;) {
+			unsigned c1;
+			t_size d1;
+			d1 = utf8_decode_char(src, c1);
+			if (d1 == 0) break;
+			else {
+				dest.add_char(charLower(c1));
+			}
+			src += d1;
+		}
+	}
+
 	// A class that turns metadata + location info into hashes to which our data gets pinned by the backend.
 	class metadb_index_client_impl : public metadb_index_client {
 	public:
 		metadb_index_hash transform(const file_info & info, const playable_location & location) {
 			static auto obj = makeKeyObj(strPinTo); // initialized first time we get here and reused later
-			static hasher_md5::ptr hasher = hasher_md5::get();
 			pfc::string_formatter str;
 			obj->run_simple(location, &info, str);
 			// Make MD5 hash of the string, then reduce it to 64-bit metadb_index_hash
-			return hasher->process_single_string(str).xorHalve();
+			return static_api_ptr_t<hasher_md5>()->process_single_string(str).xorHalve();
+		}
+	};
+
+	class metadb_index_client_impl_new : public metadb_index_client {
+	public:
+		metadb_index_hash transform(const file_info & info, const playable_location & location) {
+			static auto obj = makeKeyObj(strPinTo); // initialized first time we get here and reused later
+			pfc::string_formatter str, str_lower;
+			obj->run_simple(location, &info, str);
+			mb_to_lower(str, str_lower);
+			FB2K_console_formatter() << COMPONENT_NAME << str_lower << " -- " << str;
+			// Make MD5 hash of the string, then reduce it to 64-bit metadb_index_hash
+			return static_api_ptr_t<hasher_md5>()->process_single_string(str_lower).xorHalve();
 		}
 	};
 
 	// Static instance, never destroyed (dies with the process)
 	// Uses service_impl_single_t, reference counting disabled
 	static metadb_index_client_impl * g_client = new service_impl_single_t<metadb_index_client_impl>;
+	static metadb_index_client_impl_new * g_client_new = new service_impl_single_t<metadb_index_client_impl_new>;
 
 	// Static cached ptr to metadb_index_manager
 	// Cached because we'll be calling it a lot on per-track basis, let's not pass it everywhere to low level functions
@@ -68,7 +96,7 @@ namespace {
 					g_api->add(g_client, guid_foo_enhanced_playcount_index, retentionPeriod);
 				} catch (std::exception const & e) {
 					g_api->remove(guid_foo_enhanced_playcount_index);
-					FB2K_console_formatter() << "[foo_enhanced_playcount] Critical initialization failure: " << e;
+					FB2K_console_formatter() << COMPONENT_NAME": Critical initialization failure: " << e;
 					return;
 				}
 				g_api->dispatch_global_refresh();
@@ -85,22 +113,38 @@ namespace {
 	static service_factory_single_t<init_stage_callback_impl> g_init_stage_callback_impl;
 	static service_factory_single_t<initquit_impl> g_initquit_impl;
 
-#define kCurrVersion   1
-
-	struct record_t {
-		unsigned int version = kCurrVersion;
-		unsigned int numFoobarPlays = 0;
-		unsigned int numLastfmPlays = 0;
-		int unused = 0;			// available for later
-		std::vector<t_filetimestamp> foobarPlaytimes;
-		std::vector<t_filetimestamp> lastfmPlaytimes;
-	};
-
 	void copyTimestampsToVector(t_filetimestamp *buf, const size_t numElements, std::vector<t_filetimestamp>& v) {
 		v.insert(v.begin(), buf, buf + numElements);
 	}
 
-	static record_t getRecord(metadb_index_hash hash) {
+	void convertHashes(void) 
+	{
+		if (true || g_api->have_orphaned_data(guid_foo_enhanced_playcount_index2)) {
+			pfc::list_t<metadb_index_hash> hashes;
+
+			g_api->erase_orphaned_data(guid_foo_enhanced_playcount_index2);
+			g_api->add(g_client_new, guid_foo_enhanced_playcount_index2, retentionPeriod);
+			g_api->get_all_hashes(guid_foo_enhanced_playcount_index, hashes);
+			int count = 0;
+			for (size_t hashWalk = 0; hashWalk < hashes.get_count(); ++hashWalk) {
+				auto hash = hashes[hashWalk];
+				metadb_handle_list tracks;
+				g_api->get_ML_handles(guid_foo_enhanced_playcount_index, hash, tracks);
+				if (tracks.get_count() > 0) {
+					record_t record = getRecord(hash);
+					if (record.numFoobarPlays > 0 || record.numLastfmPlays > 0) {
+						count++;
+						metadb_index_hash hash_new;
+						g_client_new->hashHandle(tracks[0], hash_new);
+						setRecord(hash_new, record, guid_foo_enhanced_playcount_index2);
+					}
+				}
+			}
+			FB2K_console_formatter() << COMPONENT_NAME": Converted " << count << " records to new hash";
+		}
+	}
+
+	record_t getRecord(metadb_index_hash hash, const GUID index_guid) {
 		unsigned int buf[10004];
 		record_t record;
 		int size = 0;
@@ -137,7 +181,7 @@ namespace {
 		return record;
 	}
 
-	static void setRecord(metadb_index_hash hash, record_t record) {
+	static void setRecord(metadb_index_hash hash, record_t record, const GUID index_guid) {
 		unsigned int buf[10004];
 		size_t size = 0;
 		record.version = kCurrVersion;
@@ -153,7 +197,7 @@ namespace {
 			size += record.lastfmPlaytimes.size() * sizeof t_filetimestamp / sizeof(int);
 		}
 
-		g_api->set_user_data(guid_foo_enhanced_playcount_index, hash, buf, size * sizeof(int));
+		g_api->set_user_data(index_guid, hash, buf, size * sizeof(int));
 	}
 
 	std::vector<t_filetimestamp> getLastFmPlaytimes(metadb_handle_ptr p_item, metadb_index_hash hash, const t_filetimestamp lastPlay) {

@@ -51,4 +51,4 @@ namespace foo_enhanced_playcount {
 
 	extern PlaycountConfig Config;
 
-} // namespace foo_scrobble
+} // namespace foo_enhanced_playcount

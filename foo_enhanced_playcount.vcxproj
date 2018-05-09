@@ -140,6 +140,7 @@ copy /Y "$(TargetPath)" "C:\Users\Kevin\Dropbox\foobar2000"</Command>
     <ClInclude Include="include\rapidjson\rapidjson.h" />
     <ClInclude Include="lastfm.h" />
     <ClInclude Include="PlaycountConfig.h" />
+    <ClInclude Include="PlayedTimes.h" />
     <ClInclude Include="Query.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
