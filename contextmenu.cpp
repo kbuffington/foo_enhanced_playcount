@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "PlayedTimes.h"
 
 
 // Identifier of our context menu group.
@@ -10,10 +11,6 @@ static const GUID context_menu_guid = { 0xb09794fd, 0x65c0, 0x4c1d,{ 0x99, 0xeb,
 
 //static contextmenu_group_factory g_mygroup(guid_mygroup, contextmenu_groups::root, 0);
 static contextmenu_group_popup_factory g_mygroup(context_menu_guid, contextmenu_groups::root, "Enhanced Playcount", 0);
-
-//static void RunTestCommand(metadb_handle_list_cref data);
-void ClearLastFmRecords(metadb_handle_list_cref items); //played_times.cpp
-void GetLastfmScrobblesThreaded(metadb_handle_list_cref items); //played_times.cpp
 
 // Simple context menu item class.
 class myitem : public contextmenu_item_simple {
@@ -35,28 +32,16 @@ public:
 	void context_command(unsigned p_index,metadb_handle_list_cref p_data,const GUID& p_caller) {
 		switch(p_index) {
 			case cmd_clear_lastfm:
-				ClearLastFmRecords(p_data);
+				enhanced_playcount::ClearLastFmRecords(p_data);
 				break;
 			case cmd_get_scrobbles:
-				GetLastfmScrobblesThreaded(p_data);
+				enhanced_playcount::GetLastfmScrobblesThreaded(p_data, true);
 				break;
 			default:
 				uBugCheck();
 		}
 	}
-	// Overriding this is not mandatory. We're overriding it just to demonstrate stuff that you can do such as context-sensitive menu item labels.
-	//bool context_get_display(unsigned p_index,metadb_handle_list_cref p_data,pfc::string_base & p_out,unsigned & p_displayflags,const GUID & p_caller) {
-	//	switch(p_index) {
-	//		case cmd_clear_lastfm:
-	//			if (!__super::context_get_display(p_index, p_data, p_out, p_displayflags, p_caller)) return false;
-	//			// Example context sensitive label: append the count of selected items to the label.
-	//			p_out << " : " << p_data.get_count() << " item";
-	//			if (p_data.get_count() != 1) p_out << "s";
-	//			p_out << " selected";
-	//			return true;
-	//		default: uBugCheck();
-	//	}
-	//}
+
 	GUID get_item_guid(unsigned p_index) {
 		// These GUIDs identify our context menu items.
 		static const GUID guid_reset = { 0xac78cb04, 0x1f14, 0x4fcf,{ 0x83, 0xeb, 0x88, 0xb1, 0x9b, 0x3c, 0xe2, 0x31 } };

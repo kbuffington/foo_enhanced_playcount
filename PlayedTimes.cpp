@@ -12,8 +12,6 @@ using namespace foo_enhanced_playcount;
 using namespace pfc;
 using namespace enhanced_playcount;
 
-void GetLastfmScrobblesThreaded(metadb_handle_list_cref items);
-
 namespace enhanced_playcount {
 
 	std::string t_uint64_to_string(t_uint64 value, bool jsTimestamp);
@@ -134,7 +132,6 @@ namespace enhanced_playcount {
 	void convertHashes(void) 
 	{
 		pfc::list_t<metadb_index_hash> hashes;
-#if 1
 		if (dbNeedsConversion) {
 			theAPI()->get_all_hashes(guid_foo_enhanced_playcount_obsolete, hashes);
 			int count = 0;
@@ -157,7 +154,6 @@ namespace enhanced_playcount {
 			theAPI()->save_index_data(guid_foo_enhanced_playcount_index);
 			FB2K_console_formatter() << COMPONENT_NAME": Converted " << count << " records. Deleted old database.";
 		}
-#endif
 	}
 
 	record_t getRecord(metadb_index_hash hash, const GUID index_guid) {
@@ -318,7 +314,7 @@ namespace enhanced_playcount {
 			if (config.EnableLastfmPlaycounts) {
 				metadb_handle_list p_list;
 				p_list.add_item(p_track);
-				GetLastfmScrobblesThreaded(p_list);
+				GetLastfmScrobblesThreaded(p_list, false);
 			}
 		}
 		void on_playback_starting(play_control::t_track_command p_command, bool p_paused) {}
@@ -653,141 +649,134 @@ namespace enhanced_playcount {
 	};
 
 	static service_factory_single_t<metadb_display_field_provider_impl> g_metadb_display_field_provider_impl;
-}
 
-// Context Menu functions start here
-void ClearLastFmRecords(metadb_handle_list_cref items) {
-	try {
-		if (items.get_count() == 0) throw pfc::exception_invalid_params();
-		
-		for (size_t t = 0; t < items.get_count(); t++) {
-			metadb_index_hash hash;
-			clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(items[t], hash);
 
-			record_t record = getRecord(hash);
-			record.lastfmPlaytimes.clear();
-			record.numLastfmPlays = 0;
-			setRecord(hash, record);
-			theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, hash);
-		}
-
-	}
-	catch (std::exception const & e) {
-		popup_message::g_complain("Could not remove last.fm plays", e);
-	}
-}
-
-struct hash_record {
-	metadb_index_hash hash;
-	metadb_handle_ptr mdb_handle;
-	record_t record;
-	hash_record(metadb_handle_ptr mdb_ptr) : mdb_handle(mdb_ptr) {}
-};
-
-class metadb_refresh_callback : public main_thread_callback {
-private:
-	metadb_index_hash m_hash;
-	record_t m_record;
-
-public:
-	metadb_refresh_callback(metadb_index_hash hash, record_t record) : m_hash(hash), m_record(record) {}
-
-	virtual void callback_run()
-	{
-		if (m_record.numLastfmPlays > 0) {
-			setRecord(m_hash, m_record);
-			theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, m_hash);
-		}
-	}
-};
-
-class get_lastfm_scrobbles : public threaded_process_callback {
-public:
-	get_lastfm_scrobbles(std::vector<hash_record> items) : m_items(items) {}
-	void on_init(HWND p_wnd) {}
-	void run(threaded_process_status & p_status, abort_callback & p_abort) {
+	// Context Menu functions start here
+	void ClearLastFmRecords(metadb_handle_list_cref items) {
 		try {
-			for (size_t t = 0; t < m_items.size(); t++) {
-				p_status.set_progress(t, m_items.size());
-				p_status.set_item_path(m_items[t].mdb_handle->get_path());
+			if (items.get_count() == 0) throw pfc::exception_invalid_params();
 
-				record_t record = m_items[t].record;
-				std::vector<t_filetimestamp> playTimes;
-				playTimes = getLastFmPlaytimes(m_items[t].mdb_handle, m_items[t].hash,
-					m_items[t].record.lastfmPlaytimes.size() ? m_items[t].record.lastfmPlaytimes.back() : 0);
-				record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
-				record.numLastfmPlays = record.lastfmPlaytimes.size();
+			for (size_t t = 0; t < items.get_count(); t++) {
+				metadb_index_hash hash;
+				clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(items[t], hash);
 
-				if (record.numFoobarPlays == 0) {
-					t_filetimestamp fp = 0, lp = 0;
-					if (first_and_last_played_script.is_empty()) {
-						static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(first_and_last_played_script, "%first_played%~%last_played%");
-					}
-					pfc::string_formatter p_out;
-
-					m_items[t].mdb_handle->format_title(NULL, p_out, first_and_last_played_script, NULL);
-					t_size divider = p_out.find_first('~');
-					char firstPlayed[25], lastPlayed[25];
-					strncpy_s(firstPlayed, p_out.toString(), divider);
-					strcpy_s(lastPlayed, p_out.toString() + divider + 1);
-
-					if (strcmp(firstPlayed, "N/A")) {
-						fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
-						lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
-
-						record.foobarPlaytimes.push_back(fp);
-						if (fp != lp) {
-							record.foobarPlaytimes.push_back(lp);
-						}
-						record.numFoobarPlays = record.foobarPlaytimes.size();
-					}
-				}
-
-				static_api_ptr_t<main_thread_callback_manager> cm;
-				service_ptr_t<metadb_refresh_callback> update_cb =
-					new service_impl_t<metadb_refresh_callback>(m_items[t].hash, record);
-				cm->add_callback(update_cb);
-
+				record_t record = getRecord(hash);
+				record.lastfmPlaytimes.clear();
+				record.numLastfmPlays = 0;
+				setRecord(hash, record);
+				theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, hash);
 			}
+
 		} catch (std::exception const & e) {
-			m_failMsg = e.what();
+			popup_message::g_complain("Could not remove last.fm plays", e);
 		}
 	}
-	void on_done(HWND p_wnd, bool p_was_aborted) {
-		if (!p_was_aborted) {
-			if (!m_failMsg.is_empty()) {
-				popup_message::g_complain("Could not retrieve last.fm scrobbles", m_failMsg);
-			} else {
-				// finished succesfully
+
+	class metadb_refresh_callback : public main_thread_callback {
+	private:
+		metadb_index_hash m_hash;
+		record_t m_record;
+
+	public:
+		metadb_refresh_callback(metadb_index_hash hash, record_t record) : m_hash(hash), m_record(record) {}
+
+		virtual void callback_run()
+		{
+			if (m_record.numLastfmPlays > 0) {
+				setRecord(m_hash, m_record);
+				theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, m_hash);
 			}
 		}
-	}
-private:
-	pfc::string8 m_failMsg;
-	const std::vector<hash_record> m_items;
-};
+	};
 
-void GetLastfmScrobblesThreaded(metadb_handle_list_cref items) {
-	int showProgress = threaded_process::flag_show_progress;
-	try {
-		if (items.get_count() == 0) throw pfc::exception_invalid_params();
-		if (items.get_count() == 1) showProgress = 0;
+	class get_lastfm_scrobbles : public threaded_process_callback {
+	public:
+		get_lastfm_scrobbles(std::vector<hash_record> items) : m_items(items) {}
+		void on_init(HWND p_wnd) {}
+		void run(threaded_process_status & p_status, abort_callback & p_abort) {
+			try {
+				for (size_t t = 0; t < m_items.size(); t++) {
+					p_status.set_progress(t, m_items.size());
+					p_status.set_item_path(m_items[t].mdb_handle->get_path());
 
-		std::vector<hash_record> hash_record_list;
-		for (size_t t = 0; t < items.get_count(); t++) {
-			hash_record_list.push_back(hash_record(items[t]));
-			clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(items[t], hash_record_list[t].hash);
-			hash_record_list[t].record = getRecord(hash_record_list[t].hash);
+					record_t record = m_items[t].record;
+					std::vector<t_filetimestamp> playTimes;
+					playTimes = getLastFmPlaytimes(m_items[t].mdb_handle, m_items[t].hash,
+						m_items[t].record.lastfmPlaytimes.size() ? m_items[t].record.lastfmPlaytimes.back() : 0);
+					record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
+					record.numLastfmPlays = record.lastfmPlaytimes.size();
+
+					if (record.numFoobarPlays == 0) {
+						t_filetimestamp fp = 0, lp = 0;
+						if (first_and_last_played_script.is_empty()) {
+							static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(first_and_last_played_script, "%first_played%~%last_played%");
+						}
+						pfc::string_formatter p_out;
+
+						m_items[t].mdb_handle->format_title(NULL, p_out, first_and_last_played_script, NULL);
+						t_size divider = p_out.find_first('~');
+						char firstPlayed[25], lastPlayed[25];
+						strncpy_s(firstPlayed, p_out.toString(), divider);
+						strcpy_s(lastPlayed, p_out.toString() + divider + 1);
+
+						if (strcmp(firstPlayed, "N/A")) {
+							fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
+							lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
+
+							record.foobarPlaytimes.push_back(fp);
+							if (fp != lp) {
+								record.foobarPlaytimes.push_back(lp);
+							}
+							record.numFoobarPlays = record.foobarPlaytimes.size();
+						}
+					}
+
+					static_api_ptr_t<main_thread_callback_manager> cm;
+					service_ptr_t<metadb_refresh_callback> update_cb =
+						new service_impl_t<metadb_refresh_callback>(m_items[t].hash, record);
+					cm->add_callback(update_cb);
+
+				}
+			} catch (std::exception const & e) {
+				m_failMsg = e.what();
+			}
 		}
+		void on_done(HWND p_wnd, bool p_was_aborted) {
+			if (!p_was_aborted) {
+				if (!m_failMsg.is_empty()) {
+					popup_message::g_complain("Could not retrieve last.fm scrobbles", m_failMsg);
+				} else {
+					// finished succesfully
+				}
+			}
+		}
+	private:
+		pfc::string8 m_failMsg;
+		const std::vector<hash_record> m_items;
+	};
 
-		service_ptr_t<threaded_process_callback> cb = new service_impl_t<get_lastfm_scrobbles>(hash_record_list);
-		static_api_ptr_t<threaded_process>()->run_modeless(
-			cb,
-			showProgress | threaded_process::flag_show_item | threaded_process::flag_show_delayed,
-			core_api::get_main_window(),
-			COMPONENT_NAME": Retrieving last.fm scrobbles");
-	} catch (std::exception const & e) {
-		popup_message::g_complain("Could not retrieve last.fm scrobbles", e);
+	void GetLastfmScrobblesThreaded(metadb_handle_list_cref items, bool always_show_popup) {
+		int threaded_process_flags = threaded_process::flag_show_progress | threaded_process::flag_show_delayed | threaded_process::flag_show_item;
+		try {
+			if (items.get_count() == 0) throw pfc::exception_invalid_params();
+			if (items.get_count() == 1) threaded_process_flags &= ~threaded_process::flag_show_progress;
+			if (always_show_popup) threaded_process_flags &= ~threaded_process::flag_show_delayed;
+
+			std::vector<hash_record> hash_record_list;
+			for (size_t t = 0; t < items.get_count(); t++) {
+				hash_record_list.push_back(hash_record(items[t]));
+				clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(items[t], hash_record_list[t].hash);
+				hash_record_list[t].record = getRecord(hash_record_list[t].hash);
+			}
+
+			service_ptr_t<threaded_process_callback> cb = new service_impl_t<get_lastfm_scrobbles>(hash_record_list);
+			static_api_ptr_t<threaded_process>()->run_modeless(
+				cb,
+				threaded_process_flags,
+				core_api::get_main_window(),
+				COMPONENT_NAME": Retrieving last.fm scrobbles");
+		} catch (std::exception const & e) {
+			popup_message::g_complain("Could not retrieve last.fm scrobbles", e);
+		}
 	}
 }
-
