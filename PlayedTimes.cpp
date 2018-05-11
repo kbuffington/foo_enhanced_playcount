@@ -314,30 +314,6 @@ namespace enhanced_playcount {
 			t_filetimestamp fp = 0, lp = 0;
 
 			record_t record = getRecord(hash);
-			if (record.numFoobarPlays == 0) {
-				if (first_and_last_played_script.is_empty()) {
-					static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(first_and_last_played_script, "%first_played%~%last_played%");
-				}
-				pfc::string_formatter p_out;
-
-				p_track->format_title(NULL, p_out, first_and_last_played_script, NULL);
-				t_size divider = p_out.find_first('~');
-				char firstPlayed[25], lastPlayed[25];
-				strncpy_s(firstPlayed, p_out.toString(), divider);
-				strcpy_s(lastPlayed, p_out.toString() + divider + 1);
-
-				if (strcmp(firstPlayed, "N/A")) {
-					fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
-					lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
-
-					record.foobarPlaytimes.push_back(fp);
-					if (fp != lp) {
-						record.foobarPlaytimes.push_back(lp);
-					}
-					record.numFoobarPlays = record.foobarPlaytimes.size();
-					setRecord(hash, record);
-				}
-			}
 
 			if (config.EnableLastfmPlaycounts) {
 				metadb_handle_list p_list;
