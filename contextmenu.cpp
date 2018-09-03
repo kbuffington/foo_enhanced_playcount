@@ -1,6 +1,8 @@
 #include "stdafx.h"
+#include "PlaycountConfig.h"
 #include "PlayedTimes.h"
 
+using namespace foo_enhanced_playcount;
 
 // Identifier of our context menu group.
 // {B09794FD-65C0-4C1D-99EB-1A5674C90AD3}
@@ -11,6 +13,8 @@ static const GUID context_menu_guid = { 0xb09794fd, 0x65c0, 0x4c1d,{ 0x99, 0xeb,
 
 //static contextmenu_group_factory g_mygroup(guid_mygroup, contextmenu_groups::root, 0);
 static contextmenu_group_popup_factory g_mygroup(context_menu_guid, contextmenu_groups::root, "Enhanced Playcount", 0);
+
+PlaycountConfig const& cfg{ Config };
 
 // Simple context menu item class.
 class myitem : public contextmenu_item_simple {
@@ -28,6 +32,15 @@ public:
 			case cmd_get_scrobbles: p_out = "Get last.fm scrobbles"; break;
 			default: uBugCheck(); // should never happen unless somebody called us with invalid parameters - bail
 		}
+	}
+	bool context_get_display(unsigned p_index, metadb_handle_list_cref p_data, pfc::string_base & p_out, unsigned & p_displayflags, const GUID & p_caller) {
+		PFC_ASSERT(p_index >= 0 && p_index<get_num_items());
+		get_item_name(p_index, p_out);
+		if (p_index == cmd_get_scrobbles && 
+				(!cfg.EnableLastfmPlaycounts || !strcmp(DefaultLastfmUsername, cfg.LastfmUsername))) {
+			p_displayflags = FLAG_DISABLED_GRAYED;
+		}
+		return true;
 	}
 	void context_command(unsigned p_index,metadb_handle_list_cref p_data,const GUID& p_caller) {
 		switch(p_index) {
@@ -71,15 +84,3 @@ public:
 
 static contextmenu_item_factory_t<myitem> g_myitem_factory;
 
-
-//static void RunTestCommand(metadb_handle_list_cref data) {
-//	pfc::string_formatter message;
-//	message << "This is a test command.\n";
-//	if (data.get_count() > 0) {
-//		message << "Parameters:\n";
-//		for(t_size walk = 0; walk < data.get_count(); ++walk) {
-//			message << data[walk] << "\n";
-//		}
-//	}	
-//	popup_message::g_show(message, "Blah");
-//}
