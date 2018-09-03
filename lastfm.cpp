@@ -69,22 +69,47 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(t_filetimestamp lastPlay) {
 	return playTimes;
 }
 
+bool hasNonPunctChars(char *p) {
+	char *src = p;
+	std::locale loc;
+
+	while (*src) {
+		if (!(std::ispunct((unsigned char)*src, loc) && *src != '&' && *src != '(' && *src != ')') && *src != ' ') {
+			return true;
+		}
+		src++;
+	}
+	FB2K_console_formatter() << p << " hasNonPunctChars = false ";
+	return false;
+}
+
 void remove_punct(char *p)
 {
 	char *src = p, *dst = p;
 	std::locale loc;
+	boolean dstIncremented = false;
+	boolean skipping = false;
 
 	while (*src) {
-		if (std::ispunct((unsigned char)*src, loc) && *src != '&' && *src != '(' && *src != ')') {
+		if ((std::ispunct((unsigned char)*src, loc) && *src != '&' && *src != '(' && *src != ')') ||
+			(*src == ' ' && dstIncremented)) {
 			/* Skip this character */
+			/* skip multiple whitespace */
 			src++;
+			skipping = true;
 		} else if (src == dst) {
 			/* Increment both pointers without copying */
 			src++;
 			dst++;
+			dstIncremented = true;
 		} else {
 			/* Copy character */
+			if (skipping) {
+				skipping = false;
+				*dst++ = ' ';
+			}
 			*dst++ = *src++;
+			dstIncremented = true;
 		}
 	}
 
@@ -98,8 +123,12 @@ bool fieldsEq(pfc::string8 songInfo, const pfc::string8 value) {
 	val = (char*)malloc(sizeof(char) * (value.length() + 1));
 	strcpy_s(info, songInfo.length() + 1, songInfo.c_str());
 	strcpy_s(val, value.length() + 1, value.c_str());
-	remove_punct(info);
-	remove_punct(val);
+	if (hasNonPunctChars(info)) {
+		remove_punct(info);
+	}
+	if (hasNonPunctChars(val)) {
+		remove_punct(val);
+	}
 
 	return stringCompareCaseInsensitive(info, val) == 0;
 }
