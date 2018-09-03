@@ -335,14 +335,6 @@ namespace enhanced_playcount {
 
 	static service_factory_single_t<my_play_callback> g_play_callback_static_factory;
 
-	pfc::string8 meta_get_if_exists(const file_info * info, const char* key, const char* default) {
-		if (info->meta_exists(key)) {
-			return info->meta_get(key, 0);
-		} else {
-			return default;
-		}
-	}
-
 	class metadb_io_edit_callback_impl : public metadb_io_edit_callback {
 	public:
 		typedef const pfc::list_base_const_t<const file_info*> & t_infosref;
@@ -353,16 +345,8 @@ namespace enhanced_playcount {
 
 				clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(items[t], hashOld);
 
-				pfc::string8 artist = meta_get_if_exists(after[t], "ARTIST", "");
-				pfc::string8 album = meta_get_if_exists(after[t], "ALBUM", "");
-				pfc::string8 discnum = meta_get_if_exists(after[t], "DISCNUMBER", "1");
-				pfc::string8 tracknum = meta_get_if_exists(after[t], "TRACKNUMBER", "");
-				pfc::string8 title = meta_get_if_exists(after[t], "TITLE", "");
-
-				pfc::string_formatter strAfter;
-				strAfter << artist << " " << album << " " << discnum << " " << tracknum << " " << title;
-
-				hashNew = hasher->process_single_string(strAfter).xorHalve();
+				auto playable_location = make_playable_location(items[t]->get_path(), items[t]->get_subsong_index());
+				hashNew = clientByGUID(guid_foo_enhanced_playcount_index)->transform(*after[t], playable_location);
 				if (hashOld != hashNew) {
 					record_t record = getRecord(hashOld);
 					if (record.numFoobarPlays || record.numLastfmPlays) {
@@ -529,6 +513,9 @@ namespace enhanced_playcount {
 				case LASTFM_PLAY_COUNT:
 					count = playcount_get(hash, true);
 					out->write_int(titleformat_inputtypes::meta, count);
+					if (count == 0) {
+						return false;
+					}
 					break;
 				case LASTFM_ADDED:
 				case LASTFM_FIRST_PLAYED:
