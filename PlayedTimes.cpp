@@ -669,7 +669,7 @@ namespace enhanced_playcount {
 
 		virtual void callback_run()
 		{
-			if (m_record.numLastfmPlays > 0) {
+			if (m_record.numLastfmPlays > 0 || m_record.numFoobarPlays > 0) {
 				setRecord(m_hash, m_record);
 				theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, m_hash);
 			}
