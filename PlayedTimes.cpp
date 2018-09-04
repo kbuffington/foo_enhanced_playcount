@@ -290,6 +290,9 @@ namespace enhanced_playcount {
 			clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(p_item, hash);
 
 			record_t record = getRecord(hash);
+			if (record.numFoobarPlays == 0) {
+				getFirstLastPlayedTimes(p_item, &record);
+			}
 			t_filetimestamp time = filetimestamp_from_system_timer();
 			time /= 10000000;
 			time *= 10000000;
@@ -669,7 +672,7 @@ namespace enhanced_playcount {
 
 		virtual void callback_run()
 		{
-			if (m_record.numLastfmPlays > 0 || m_record.numFoobarPlays > 0) {
+			if (m_record.numLastfmPlays > 0) {
 				setRecord(m_hash, m_record);
 				theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, m_hash);
 			}
@@ -694,28 +697,7 @@ namespace enhanced_playcount {
 					record.numLastfmPlays = record.lastfmPlaytimes.size();
 
 					if (record.numFoobarPlays == 0) {
-						t_filetimestamp fp = 0, lp = 0;
-						if (first_and_last_played_script.is_empty()) {
-							static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(first_and_last_played_script, "%first_played%~%last_played%");
-						}
-						pfc::string_formatter p_out;
-
-						m_items[t].mdb_handle->format_title(NULL, p_out, first_and_last_played_script, NULL);
-						t_size divider = p_out.find_first('~');
-						char firstPlayed[25], lastPlayed[25];
-						strncpy_s(firstPlayed, p_out.toString(), divider);
-						strcpy_s(lastPlayed, p_out.toString() + divider + 1);
-
-						if (strcmp(firstPlayed, "N/A")) {
-							fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
-							lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
-
-							record.foobarPlaytimes.push_back(fp);
-							if (fp != lp) {
-								record.foobarPlaytimes.push_back(lp);
-							}
-							record.numFoobarPlays = record.foobarPlaytimes.size();
-						}
+						getFirstLastPlayedTimes(m_items[t].mdb_handle, &record);
 					}
 
 					static_api_ptr_t<main_thread_callback_manager> cm;
@@ -741,6 +723,31 @@ namespace enhanced_playcount {
 		pfc::string8 m_failMsg;
 		const std::vector<hash_record> m_items;
 	};
+
+	void getFirstLastPlayedTimes(metadb_handle_ptr metadb_handle, record_t *record) {
+		t_filetimestamp fp = 0, lp = 0;
+		if (first_and_last_played_script.is_empty()) {
+			static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(first_and_last_played_script, "%first_played%~%last_played%");
+		}
+		pfc::string_formatter p_out;
+
+		metadb_handle->format_title(NULL, p_out, first_and_last_played_script, NULL);
+		t_size divider = p_out.find_first('~');
+		char firstPlayed[25], lastPlayed[25];
+		strncpy_s(firstPlayed, p_out.toString(), divider);
+		strcpy_s(lastPlayed, p_out.toString() + divider + 1);
+
+		if (strcmp(firstPlayed, "N/A")) {
+			fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
+			lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
+
+			record->foobarPlaytimes.push_back(fp);
+			if (fp != lp) {
+				record->foobarPlaytimes.push_back(lp);
+			}
+			record->numFoobarPlays = record->foobarPlaytimes.size();
+		}
+	}
 
 	void GetLastfmScrobblesThreaded(metadb_handle_list_cref items, bool always_show_popup) {
 		int threaded_process_flags = threaded_process::flag_show_progress | threaded_process::flag_show_delayed | threaded_process::flag_show_item;

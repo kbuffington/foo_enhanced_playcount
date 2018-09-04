@@ -17,6 +17,7 @@ namespace enhanced_playcount {
 
 	record_t getRecord(metadb_index_hash hash, const GUID index_guid = guid_foo_enhanced_playcount_index);
 	void setRecord(metadb_index_hash hash, record_t record, const GUID index_guid = guid_foo_enhanced_playcount_index);
+	void getFirstLastPlayedTimes(metadb_handle_ptr metadb_handle, record_t *record);
 	
 	struct hash_record {
 		metadb_index_hash hash;
