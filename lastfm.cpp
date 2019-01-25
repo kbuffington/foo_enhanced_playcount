@@ -52,7 +52,7 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(t_filetimestamp lastPlay) {
 	while (configured && !done && page <= maxPages) {
 		Query *query = new Query();
 		query->add_apikey();
-		query->add_param("user", user);
+		query->add_param("user", user, false);
 		query->add_param("artist", artist);
 		query->add_param("limit", 200);
 		query->add_param("format", "json");
@@ -79,7 +79,6 @@ bool hasNonPunctChars(char *p) {
 		}
 		src++;
 	}
-	FB2K_console_formatter() << p << " hasNonPunctChars = false ";
 	return false;
 }
 
@@ -139,8 +138,12 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 	int count;
 	bool done = false;
 
-	if (!d.HasMember("artisttracks"))
+	if (!d.HasMember("artisttracks")) {
+		if (d.HasMember("error") && d.HasMember("message")) {
+			FB2K_console_formatter() << "last.fm Error: " << d["message"].GetString();
+		}
 		return true;
+	}
 	const Value& a = d["artisttracks"];
 	if (a.IsObject()) {
 		if (!a.HasMember("track"))
