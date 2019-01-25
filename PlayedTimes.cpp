@@ -99,7 +99,6 @@ namespace enhanced_playcount {
 				// Important, handle the exceptions here!
 				// This will fail if the files holding our data are somehow corrupted.
 				try {
-					api = metadb_index_manager::get();
 					if (api->have_orphaned_data(guid_foo_enhanced_playcount_obsolete)) {
 						dbNeedsConversion = true;
 						FB2K_console_formatter() << COMPONENT_NAME": Found old index-db. Will convert hashes.";
