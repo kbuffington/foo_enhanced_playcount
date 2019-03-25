@@ -50,18 +50,29 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(t_filetimestamp lastPlay) {
 	}
 
 	while (configured && !done && page <= maxPages) {
-		Query *query = new Query();
-		query->add_apikey();
-		query->add_param("user", user, false);
-		query->add_param("artist", artist);
-		query->add_param("limit", 200);
-		query->add_param("format", "json");
-		query->add_param("page", page++);
+		//Query *query = new Query();
+		//query->add_apikey();
+		//query->add_param("user", user, false);
+		//query->add_param("artist", artist);
+		//query->add_param("limit", 200);
+		//query->add_param("format", "json");
+		//query->add_param("page", page++);
+
+		Query *trackQuery = new Query("user.getTrackScrobbles");
+		trackQuery->add_apikey();
+		trackQuery->add_param("user", user, false);
+		trackQuery->add_param("artist", artist, false);
+		trackQuery->add_param("track", title, false);
+		trackQuery->add_param("limit", 200);
+		trackQuery->add_param("format", "json");
+		trackQuery->add_param("page", page++);
+
 		if (lastPlay > 0) {
 			// convert to unix timestamp and skip 29 seconds to avoid duplicate scrobbles
 			lastPlayed = fileTimeWtoU(lastPlay) + (config.RemoveDuplicateLastfmScrobbles ? 29 : 0);
 		}
-		auto buf = query->perform(hash);
+		//auto buf = query->perform(hash);
+		auto buf = trackQuery->perform(0);
 
 		done = parseJson(buf, playTimes, lastPlayed);
 	}
@@ -138,13 +149,18 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 	int count;
 	bool done = false;
 
-	if (!d.HasMember("artisttracks")) {
+	if (!d.HasMember("artisttracks") && !d.HasMember("trackscrobbles")) {
 		if (d.HasMember("error") && d.HasMember("message")) {
 			FB2K_console_formatter() << "last.fm Error: " << d["message"].GetString();
 		}
 		return true;
 	}
-	const Value& a = d["artisttracks"];
+	Value& a = d;	// should just be: const Value& a = d["trackscrobbles"]
+	if (d.HasMember("artisttracks")) {
+		a = d["artisttracks"];
+	} else {
+		a = d["trackscrobbles"];
+	}
 	if (a.IsObject()) {
 		if (!a.HasMember("track"))
 			return true;

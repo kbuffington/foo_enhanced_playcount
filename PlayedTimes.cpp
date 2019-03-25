@@ -645,6 +645,8 @@ namespace enhanced_playcount {
 		try {
 			if (items.get_count() == 0) throw pfc::exception_invalid_params();
 
+			pfc::avltree_t<metadb_index_hash> tmp;
+
 			for (size_t t = 0; t < items.get_count(); t++) {
 				metadb_index_hash hash;
 				clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(items[t], hash);
@@ -653,14 +655,24 @@ namespace enhanced_playcount {
 				record.lastfmPlaytimes.clear();
 				record.numLastfmPlays = 0;
 				setRecord(hash, record);
-				theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, hash);
+				tmp += hash;
 			}
+
+			pfc::list_t<metadb_index_hash> hashes;
+			for (auto iter = tmp.first(); iter.is_valid(); ++iter)
+			{
+				const metadb_index_hash hash = *iter;
+				hashes += hash;
+			}
+
+			theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, hashes);
 
 		} catch (std::exception const & e) {
 			popup_message::g_complain("Could not remove last.fm plays", e);
 		}
 	}
 
+	/* TODO: Remove this once queued_metadb_refresh_callback below is tested out */
 	class metadb_refresh_callback : public main_thread_callback {
 	private:
 		metadb_index_hash m_hash;
@@ -678,12 +690,26 @@ namespace enhanced_playcount {
 		}
 	};
 
+	class queued_metadb_refresh_callback : public main_thread_callback {
+	private:
+		pfc::list_t<metadb_index_hash> m_hashes;
+
+	public:
+		queued_metadb_refresh_callback(pfc::list_t<metadb_index_hash> hashes) : m_hashes(hashes) {}
+
+		virtual void callback_run()
+		{
+			theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, m_hashes);
+		}
+	};
+
 	class get_lastfm_scrobbles : public threaded_process_callback {
 	public:
 		get_lastfm_scrobbles(std::vector<hash_record> items) : m_items(items) {}
 		void on_init(HWND p_wnd) {}
 		void run(threaded_process_status & p_status, abort_callback & p_abort) {
 			try {
+				pfc::avltree_t<metadb_index_hash> tmp;
 				for (size_t t = 0; t < m_items.size(); t++) {
 					p_status.set_progress(t, m_items.size());
 					p_status.set_item_path(m_items[t].mdb_handle->get_path());
@@ -699,12 +725,30 @@ namespace enhanced_playcount {
 						getFirstLastPlayedTimes(m_items[t].mdb_handle, &record);
 					}
 
-					static_api_ptr_t<main_thread_callback_manager> cm;
+					/* Remove once below is tested */
+					/* static_api_ptr_t<main_thread_callback_manager> cm;
 					service_ptr_t<metadb_refresh_callback> update_cb =
 						new service_impl_t<metadb_refresh_callback>(m_items[t].hash, record);
-					cm->add_callback(update_cb);
+					cm->add_callback(update_cb);*/
 
+					// new code:
+					setRecord(m_items[t].hash, record);
+					tmp += m_items[t].hash;
 				}
+
+				// TODO: Update every 100 hashes?
+				pfc::list_t<metadb_index_hash> hashes;
+				for (auto iter = tmp.first(); iter.is_valid(); ++iter)
+				{
+					const metadb_index_hash hash = *iter;
+					hashes += hash;
+				}
+
+				static_api_ptr_t<main_thread_callback_manager> cm;
+				service_ptr_t<queued_metadb_refresh_callback> update_cb =
+					new service_impl_t<queued_metadb_refresh_callback>(hashes);
+				cm->add_callback(update_cb);
+
 			} catch (std::exception const & e) {
 				m_failMsg = e.what();
 			}

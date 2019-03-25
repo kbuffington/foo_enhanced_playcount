@@ -6,7 +6,11 @@
 
 static const pfc::string8 lastfmApiKey = "a1685abe5265b93cf2be4a70d181bf6b";
 
+// by artist
 // http://ws.audioscrobbler.com/2.0/?method=user.getartisttracks&user=MordredKLB&artist=metallica&api_key=a1685abe5265b93cf2be4a70d181bf6b&format=json
+
+// by song
+// http://ws.audioscrobbler.com/2.0/?method=user.getTrackScrobbles&username=MordredKLB&artist=metallica&track=whiplash&api_key=a1685abe5265b93cf2be4a70d181bf6b&format=json
 
 static const char lastfmApiBase[] = "http://ws.audioscrobbler.com/2.0/?method=";
 
@@ -34,11 +38,8 @@ Query::Query(const char *method) {
 
 pfc::string8 Query::getCacheSize() {
 	std::string cacheVals;
-	//pfc::string8 sizeStr = std::to_string(pageCache.getCacheSize(cacheVals)).c_str();
 	pfc::string8 sizeStr = std::to_string(pageCache.getCacheSize()).c_str();
-	//size_t memSize = cacheVals.size();
 
-	//sizeStr << " [" << (memSize / 1024) << "kB]";
 	return sizeStr;
 }
 
@@ -57,7 +58,7 @@ char Query::to_hex(char c) {
 }
 
 void Query::add_param(const char *param, pfc::string8 value, bool encode) {
-	url << "&" << param << "=" << (encode ? url_encode(value) : value);
+	url << "&" << param << "=" << (encode ? url_encode(value) : url_encode_new(value));
 }
 
 void Query::add_param(const char *param, int value) {
@@ -94,6 +95,13 @@ pfc::string8 Query::url_encode(pfc::string8 in) {
 	}
 
 	return out;
+}
+
+pfc::string8 Query::url_encode_new(pfc::string8 in) {
+	in.replace_string("&", "%26", 0);
+	in.replace_string("#", "%23", 0);
+
+	return in;
 }
 
 int hashCode(std::string text) {
