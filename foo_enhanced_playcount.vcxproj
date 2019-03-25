@@ -133,6 +133,7 @@ copy /Y "$(TargetPath)" "C:\Users\Kevin\Dropbox (Gap Strategies)\foobar2000"</Co
     <ClCompile Include="preferences.cpp" />
     <ClCompile Include="Query.cpp" />
     <ClCompile Include="util.cpp" />
+    <ClCompile Include="thread_pool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Bindings.h" />
@@ -145,6 +146,7 @@ copy /Y "$(TargetPath)" "C:\Users\Kevin\Dropbox (Gap Strategies)\foobar2000"</Co
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="util.h" />
+    <ClInclude Include="thread_pool.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\pfc\pfc.vcxproj">
