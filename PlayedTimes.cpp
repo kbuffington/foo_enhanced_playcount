@@ -120,6 +120,7 @@ namespace enhanced_playcount {
 		void on_quit() {
 			// Cleanly kill g_cachedAPI before reaching static object destructors or else
 			g_cachedAPI.release();
+			simple_thread_pool::instance().exit();
 		}
 	};
 	static service_factory_single_t<init_stage_callback_impl> g_init_stage_callback_impl;
