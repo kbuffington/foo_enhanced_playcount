@@ -6,6 +6,7 @@
 #include "globals.h"
 #include "PlaycountConfig.h"
 #include "PlayedTimes.h"
+#include "thread_pool.h"
 
 
 using namespace foo_enhanced_playcount;
@@ -119,6 +120,7 @@ namespace enhanced_playcount {
 		void on_quit() {
 			// Cleanly kill g_cachedAPI before reaching static object destructors or else
 			g_cachedAPI.release();
+			simple_thread_pool::instance().exit();
 		}
 	};
 	static service_factory_single_t<init_stage_callback_impl> g_init_stage_callback_impl;
@@ -303,39 +305,6 @@ namespace enhanced_playcount {
 	};
 
 	static playback_statistics_collector_factory_t<my_playback_statistics_collector> g_my_stat_collector;
-
-	class my_play_callback : public play_callback_static {
-	public:
-		void on_playback_new_track(metadb_handle_ptr p_track) {
-			metadb_index_hash hash;
-			clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(p_track, hash);
-			t_filetimestamp fp = 0, lp = 0;
-
-			record_t record = getRecord(hash);
-
-			if (config.EnableLastfmPlaycounts) {
-				metadb_handle_list p_list;
-				p_list.add_item(p_track);
-				GetLastfmScrobblesThreaded(p_list, false);
-			}
-		}
-		void on_playback_starting(play_control::t_track_command p_command, bool p_paused) {}
-		void on_playback_stop(play_control::t_stop_reason p_reason) {}
-		void on_playback_seek(double p_time) {}
-		void on_playback_pause(bool p_state) {}
-		void on_playback_edited(metadb_handle_ptr p_track) {}
-		void on_playback_dynamic_info(const file_info & p_info) {}
-		void on_playback_dynamic_info_track(const file_info & p_info) {}
-		void on_playback_time(double p_time) {}
-		void on_volume_change(float p_new_val) {}
-
-		/* The play_callback_manager enumerates play_callback_static services and registers them automatically. We only have to provide the flags indicating which callbacks we want. */
-		virtual unsigned get_flags() {
-			return flag_on_playback_new_track;
-		}
-	};
-
-	static service_factory_single_t<my_play_callback> g_play_callback_static_factory;
 
 	class metadb_io_edit_callback_impl : public metadb_io_edit_callback {
 	public:
@@ -703,6 +672,37 @@ namespace enhanced_playcount {
 		}
 	};
 
+	class get_lastfm_scrobble : public simple_thread_task {
+	public:
+		get_lastfm_scrobble(const metadb_handle_ptr& handle) : m_handle(handle) {}
+
+		void run() override
+		{
+			metadb_index_hash hash;
+			clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(m_handle, hash);
+
+			record_t record = getRecord(hash);
+			std::vector<t_filetimestamp> playTimes;
+			playTimes = getLastFmPlaytimes(m_handle, hash,
+				record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
+			record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
+			record.numLastfmPlays = record.lastfmPlaytimes.size();
+
+			if (record.numFoobarPlays == 0) {
+				getFirstLastPlayedTimes(m_handle, &record);
+			}
+
+			setRecord(hash, record);
+
+			pfc::list_t<metadb_index_hash> hashes;
+			hashes += hash;
+			main_thread_callback_add(fb2k::service_new<queued_metadb_refresh_callback>(hashes));
+		}
+
+	private:
+		metadb_handle_ptr m_handle;
+	};
+
 	class get_lastfm_scrobbles : public threaded_process_callback {
 	public:
 		get_lastfm_scrobbles(std::vector<hash_record> items) : m_items(items) {}
@@ -816,4 +816,30 @@ namespace enhanced_playcount {
 			popup_message::g_complain("Could not retrieve last.fm scrobbles", e);
 		}
 	}
+
+	class my_play_callback : public play_callback_static {
+	public:
+		void on_playback_new_track(metadb_handle_ptr p_track) {
+			if (config.EnableLastfmPlaycounts) {
+				get_lastfm_scrobble* task = new get_lastfm_scrobble(p_track);
+				if (!simple_thread_pool::instance().enqueue(task)) delete task;
+			}
+		}
+		void on_playback_starting(play_control::t_track_command p_command, bool p_paused) {}
+		void on_playback_stop(play_control::t_stop_reason p_reason) {}
+		void on_playback_seek(double p_time) {}
+		void on_playback_pause(bool p_state) {}
+		void on_playback_edited(metadb_handle_ptr p_track) {}
+		void on_playback_dynamic_info(const file_info & p_info) {}
+		void on_playback_dynamic_info_track(const file_info & p_info) {}
+		void on_playback_time(double p_time) {}
+		void on_volume_change(float p_new_val) {}
+
+		/* The play_callback_manager enumerates play_callback_static services and registers them automatically. We only have to provide the flags indicating which callbacks we want. */
+		virtual unsigned get_flags() {
+			return flag_on_playback_new_track;
+		}
+	};
+
+	static service_factory_single_t<my_play_callback> g_play_callback_static_factory;
 }
