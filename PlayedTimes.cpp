@@ -820,10 +820,7 @@ namespace enhanced_playcount {
 	class my_play_callback : public play_callback_static {
 	public:
 		void on_playback_new_track(metadb_handle_ptr p_track) {
-			if (config.EnableLastfmPlaycounts) {
-				get_lastfm_scrobble* task = new get_lastfm_scrobble(p_track);
-				if (!simple_thread_pool::instance().enqueue(task)) delete task;
-			}
+			m_elapsed = 0; // reset
 		}
 		void on_playback_starting(play_control::t_track_command p_command, bool p_paused) {}
 		void on_playback_stop(play_control::t_stop_reason p_reason) {}
@@ -832,13 +829,25 @@ namespace enhanced_playcount {
 		void on_playback_edited(metadb_handle_ptr p_track) {}
 		void on_playback_dynamic_info(const file_info & p_info) {}
 		void on_playback_dynamic_info_track(const file_info & p_info) {}
-		void on_playback_time(double p_time) {}
+		void on_playback_time(double p_time) {
+			m_elapsed++;
+			if (m_elapsed == 3 && config.EnableLastfmPlaycounts) {
+				metadb_handle_ptr metadb;
+				if (playback_control::get()->get_now_playing(metadb)) {
+					get_lastfm_scrobble* task = new get_lastfm_scrobble(metadb);
+					if (!simple_thread_pool::instance().enqueue(task)) delete task;
+				}
+			}
+		}
 		void on_volume_change(float p_new_val) {}
 
 		/* The play_callback_manager enumerates play_callback_static services and registers them automatically. We only have to provide the flags indicating which callbacks we want. */
 		virtual unsigned get_flags() {
-			return flag_on_playback_new_track;
+			return flag_on_playback_new_track | flag_on_playback_time;
 		}
+
+	private:
+		size_t m_elapsed = 0;
 	};
 
 	static service_factory_single_t<my_play_callback> g_play_callback_static_factory;
