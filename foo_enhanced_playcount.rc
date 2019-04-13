@@ -54,7 +54,7 @@ IDD_PREFERENCES DIALOGEX 0, 0, 332, 288
 STYLE DS_SETFONT | WS_CHILD
 FONT 8, "Microsoft Sans Serif", 400, 0, 0x0
 BEGIN
-    GROUPBOX        "",IDC_STATIC,16,18,299,138
+    GROUPBOX        "",IDC_STATIC,16,18,299,104
     CONTROL         "Retrieve Last.fm Scrobbles",IDC_ENABLE_LASTFM_PLAYCOUNTS,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,21,18,95,8
     RTEXT           "Last.fm Username:",IDC_STATIC,29,36,59,8
@@ -62,14 +62,11 @@ BEGIN
     CONTROL         "Compare Album field when retrieving scrobbles",IDC_COMPARE_ALBUM_FIELDS,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,54,162,10
     CONTROL         "Increment Last.fm playcount when %play_count% increments",IDC_INCREMENT_WITH_PLAYCOUNT,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,70,206,8
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,71,206,8
     CONTROL         "Remove duplicate scrobbles",IDC_REMOVE_DUPLICATE_SCROBBLES,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,86,105,10
-    EDITTEXT        IDC_LASTFM_CACHE_SIZE,133,101,29,13,ES_AUTOHSCROLL | ES_NUMBER
-    LTEXT           "Size of Last.fm response cache:",IDC_CACHE_SIZE_LABEL,30,103,102,8
-    LTEXT           "Pages currently in cache: ",IDC_CURRENT_CACHE_SIZE_LABEL,170,103,83,8
-    LTEXT           "Cache size is cleared on restart. Set to 0 to disable (not recommended!)",IDC_CACHE_EXPLANATION,43,119,224,8
-    LTEXT           "0",IDC_CURRENT_CACHE_SIZE,252,103,51,8
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,87,105,10
+    CONTROL         "Wait to retrieve scrobbles",IDC_DELAY_PULLING_SCROBBLES,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,104,102,10
 END
 
 

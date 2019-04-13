@@ -35,8 +35,8 @@ public:
 		COMMAND_HANDLER_EX(IDC_COMPARE_ALBUM_FIELDS, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_INCREMENT_WITH_PLAYCOUNT, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_REMOVE_DUPLICATE_SCROBBLES, BN_CLICKED, OnEditChange)
+		COMMAND_HANDLER_EX(IDC_DELAY_PULLING_SCROBBLES, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_EPC_LASTFM_NAME, EN_CHANGE, OnEditChange)
-		COMMAND_HANDLER_EX(IDC_LASTFM_CACHE_SIZE, EN_CHANGE, OnEditChange)
 	END_MSG_MAP()
 
 private:
@@ -59,10 +59,9 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 	bindings_.Bind(config_.CompareAlbumFields, m_hWnd, IDC_COMPARE_ALBUM_FIELDS); 
 	bindings_.Bind(config_.IncrementLastfmWithPlaycount, m_hWnd, IDC_INCREMENT_WITH_PLAYCOUNT);
 	bindings_.Bind(config_.RemoveDuplicateLastfmScrobbles, m_hWnd, IDC_REMOVE_DUPLICATE_SCROBBLES);
+	bindings_.Bind(config_.delayScrobbleRetrieval, m_hWnd, IDC_DELAY_PULLING_SCROBBLES);
 	bindings_.Bind(config_.LastfmUsername, m_hWnd, IDC_EPC_LASTFM_NAME);
-	bindings_.Bind(config_.LruCacheSize, m_hWnd, IDC_LASTFM_CACHE_SIZE);
 	bindings_.FlowToControl();
-	GetDlgItem(IDC_CURRENT_CACHE_SIZE).SetWindowTextW(CA2W(prefQ->getCacheSize().c_str()));
 
 	CreateTooltip(tooltips[0], m_hWnd, IDC_ENABLE_LASTFM_PLAYCOUNTS,
 		L"Retrieve scrobbles from last.fm",
@@ -118,17 +117,11 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 		L"setting are applied going forward unless you clear last.fm plays for the specified "
 		L"tracks (right-click menu), and then re-retrieving them again."
 	);
-	CreateTooltip(tooltips[4], m_hWnd, IDC_LASTFM_CACHE_SIZE,
-		L"Number of Last.fm responses to cache",
-		L"\nValid range: 0 - 50\n\n"
-		L"Because making calls to Last.fm is slow (and blocks the UI temporarily) the "
-		L"API responses are cached by the plugin. All Last.fm queries are by artist and not "
-		L"album or track, so when playing multiple songs by an artist, they can all reuse the "
-		L"the same API responses. The cache greatly speeds up Last.fm play retrieval, but can "
-		L"increase the memory used by foobar.\n\n"
-		L"If a track attempts to read from the same cached response, that cache object is "
-		L"immediately invalidated and the URL will requery from Last.fm. This is so you can play "
-		L"a song or album on repeat and it will continue to retrieve the latest scrobbles."
+	CreateTooltip(tooltips[4], m_hWnd, IDC_DELAY_PULLING_SCROBBLES,
+		L"Don't immediately pull scrobbles",
+		L"\nTo avoid hammering Last.fm, and for pulling scrobbles of songs you aren't actually"
+		L"listening to, or that no longer exist in your library, it is recommended to leave this"
+		L"option enabled. Scrobbles will be pulled after 2 seconds of playback."
 	);
 
 	return FALSE;
@@ -168,8 +161,8 @@ void PlaycountPreferencesDialog::reset()
 	CheckDlgButton(IDC_ENABLE_LASTFM_PLAYCOUNTS, BST_UNCHECKED);
 	CheckDlgButton(IDC_INCREMENT_WITH_PLAYCOUNT, BST_CHECKED);
 	CheckDlgButton(IDC_REMOVE_DUPLICATE_SCROBBLES, BST_CHECKED);
+	CheckDlgButton(IDC_DELAY_PULLING_SCROBBLES, BST_CHECKED);
 	uSetDlgItemText(m_hWnd, IDC_EPC_LASTFM_NAME, DefaultLastfmUsername);
-	uSetDlgItemText(m_hWnd, IDC_LASTFM_CACHE_SIZE, DefaultLruCacheSize);
 
 	OnChanged();
 }
@@ -178,10 +171,8 @@ void PlaycountPreferencesDialog::apply()
 {
 	bindings_.FlowToVar();
 	
-	pfc::string8_fast text;
-	uGetDlgItemText(m_hWnd, IDC_LASTFM_CACHE_SIZE, text);
-	int size = stoi(text.get_ptr());
-	prefQ->setCacheSize(size);
+	// Cache size used to be an option, now pinning at 50. Will be removed shortly
+	prefQ->setCacheSize(50);
 	
 	OnChanged();
 

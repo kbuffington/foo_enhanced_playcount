@@ -16,7 +16,7 @@ PlaycountConfig::PlaycountConfig()
 	, RemoveDuplicateLastfmScrobbles(true)
 	, UnusedBool1(false)
 	, CompareAlbumFields(true)
-	, UnusedBool3(true)
+	, delayScrobbleRetrieval(true)
 	, LastfmUsername(DefaultLastfmUsername)
 	, LruCacheSize(DefaultLruCacheSize)
 	, UnusedStr1("")
@@ -34,7 +34,7 @@ void PlaycountConfig::get_data_raw(stream_writer* p_stream, abort_callback& p_ab
 	p_stream->write_lendian_t(RemoveDuplicateLastfmScrobbles, p_abort);
 	p_stream->write_lendian_t(UnusedBool1, p_abort);
 	p_stream->write_lendian_t(CompareAlbumFields, p_abort);
-	p_stream->write_lendian_t(UnusedBool3, p_abort);
+	p_stream->write_lendian_t(delayScrobbleRetrieval, p_abort);
 
 	p_stream->write_string(LastfmUsername, p_abort);
 	CacheSize = std::stoi(LruCacheSize.c_str());
@@ -56,7 +56,7 @@ void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_ab
 	p_stream->read_lendian_t(cfg.RemoveDuplicateLastfmScrobbles, p_abort);
 	p_stream->read_lendian_t(cfg.UnusedBool1, p_abort);
 	p_stream->read_lendian_t(cfg.CompareAlbumFields, p_abort);
-	p_stream->read_lendian_t(cfg.UnusedBool3, p_abort);
+	p_stream->read_lendian_t(cfg.delayScrobbleRetrieval, p_abort);
 
 	p_stream->read_string(cfg.LastfmUsername, p_abort);
 	p_stream->read_string(cfg.LruCacheSize, p_abort);

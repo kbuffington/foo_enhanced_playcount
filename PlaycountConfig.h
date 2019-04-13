@@ -15,7 +15,7 @@ namespace foo_enhanced_playcount {
 		bool RemoveDuplicateLastfmScrobbles;
 		bool UnusedBool1;
 		bool CompareAlbumFields;
-		bool UnusedBool3;
+		bool delayScrobbleRetrieval;
 
 		pfc::string8 LastfmUsername;
 		pfc::string8 LruCacheSize;
