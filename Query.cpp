@@ -98,8 +98,9 @@ pfc::string8 Query::url_encode(pfc::string8 in) {
 }
 
 pfc::string8 Query::url_encode_new(pfc::string8 in) {
-	in.replace_string("&", "%26", 0);
 	in.replace_string("#", "%23", 0);
+	in.replace_string("%", "%25", 0);
+	in.replace_string("&", "%26", 0);
 
 	return in;
 }

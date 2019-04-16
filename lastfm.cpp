@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "globals.h"
 #include "query.h"
 #include "lastfm.h"
