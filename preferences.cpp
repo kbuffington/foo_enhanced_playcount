@@ -132,9 +132,10 @@ void PlaycountPreferencesDialog::CreateTooltip(CToolTipCtrl tooltip, CWindow hWn
 	if (tooltip.Create(hWnd, nullptr, nullptr, TTS_NOPREFIX | TTS_BALLOON)) {
 		CToolInfo toolInfo(TTF_IDISHWND | TTF_SUBCLASS | TTF_CENTERTIP,
 			GetDlgItem(parent), 0, nullptr, nullptr);
+		HICON icon = 0;
 		tooltip.AddTool(&toolInfo);
 
-		tooltip.SetTitle(0, title);
+		tooltip.SetTitle(icon, title);
 		tooltip.UpdateTipText(body, GetDlgItem(parent));
 		tooltip.SetMaxTipWidth(350);
 		tooltip.SetDelayTime(TTDT_INITIAL, 350);
