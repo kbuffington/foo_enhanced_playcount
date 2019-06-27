@@ -7,6 +7,8 @@
 #include "PlaycountConfig.h"
 #include "PlayedTimes.h"
 #include "thread_pool.h"
+#include <atomic>
+#include <mutex>
 
 
 using namespace foo_enhanced_playcount;
@@ -194,6 +196,7 @@ namespace enhanced_playcount {
 		return record;
 	}
 
+	std::mutex set_record_mutex;
 	static void setRecord(metadb_index_hash hash, record_t record, const GUID index_guid) {
 		unsigned int buf[10004];
 		size_t size = 0;
@@ -210,6 +213,7 @@ namespace enhanced_playcount {
 			size += record.lastfmPlaytimes.size() * sizeof t_filetimestamp / sizeof(int);
 		}
 
+		std::lock_guard<std::mutex> guard(set_record_mutex);
 		theAPI()->set_user_data(index_guid, hash, buf, size * sizeof(int));
 	}
 
@@ -641,24 +645,6 @@ namespace enhanced_playcount {
 		}
 	}
 
-	/* TODO: Remove this once queued_metadb_refresh_callback below is tested out */
-	class metadb_refresh_callback : public main_thread_callback {
-	private:
-		metadb_index_hash m_hash;
-		record_t m_record;
-
-	public:
-		metadb_refresh_callback(metadb_index_hash hash, record_t record) : m_hash(hash), m_record(record) {}
-
-		virtual void callback_run()
-		{
-			if (m_record.numLastfmPlays > 0) {
-				setRecord(m_hash, m_record);
-				theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, m_hash);
-			}
-		}
-	};
-
 	class queued_metadb_refresh_callback : public main_thread_callback {
 	private:
 		pfc::list_t<metadb_index_hash> m_hashes;
@@ -672,9 +658,14 @@ namespace enhanced_playcount {
 		}
 	};
 
+	std::atomic_int32_t thread_counter = 0;
+	std::mutex retrieving_scrobbles;
+	std::mutex adding_hashes_mutex;
+	pfc::list_t<metadb_index_hash> thread_hashes;
+
 	class get_lastfm_scrobble : public simple_thread_task {
 	public:
-		get_lastfm_scrobble(const metadb_handle_ptr& handle) : m_handle(handle) {}
+		get_lastfm_scrobble(const metadb_handle_ptr& handle, const bool refresh) : m_handle(handle), doRefresh(refresh) {}
 
 		void run() override
 		{
@@ -693,15 +684,29 @@ namespace enhanced_playcount {
 			}
 
 			setRecord(hash, record);
-
-			pfc::list_t<metadb_index_hash> hashes;
-			hashes += hash;
-			main_thread_callback_add(fb2k::service_new<queued_metadb_refresh_callback>(hashes));
+	
+			if (doRefresh) {
+				// non-threaded path
+				pfc::list_t<metadb_index_hash> hashes;
+				hashes += hash;
+				main_thread_callback_add(fb2k::service_new<queued_metadb_refresh_callback>(hashes));
+			}
+			else {
+				thread_counter++;
+				std::lock_guard<std::mutex> guard(adding_hashes_mutex);
+				thread_hashes += hash;
+			}
 		}
 
 	private:
 		metadb_handle_ptr m_handle;
+		bool doRefresh;
 	};
+
+	void pull_scrobbles(metadb_handle_ptr metadb, bool refresh = true) {
+		get_lastfm_scrobble* task = new get_lastfm_scrobble(metadb, refresh);
+		if (!simple_thread_pool::instance().enqueue(task)) delete task;
+	}
 
 	class get_lastfm_scrobbles : public threaded_process_callback {
 	public:
@@ -709,6 +714,7 @@ namespace enhanced_playcount {
 		void on_init(HWND p_wnd) {}
 		void run(threaded_process_status & p_status, abort_callback & p_abort) {
 			try {
+#if 0
 				pfc::avltree_t<metadb_index_hash> tmp;
 				for (size_t t = 0; t < m_items.size(); t++) {
 					p_status.set_progress(t, m_items.size());
@@ -724,12 +730,6 @@ namespace enhanced_playcount {
 					if (record.numFoobarPlays == 0) {
 						getFirstLastPlayedTimes(m_items[t].mdb_handle, &record);
 					}
-
-					/* Remove once below is tested */
-					/* static_api_ptr_t<main_thread_callback_manager> cm;
-					service_ptr_t<metadb_refresh_callback> update_cb =
-						new service_impl_t<metadb_refresh_callback>(m_items[t].hash, record);
-					cm->add_callback(update_cb);*/
 
 					// new code:
 					setRecord(m_items[t].hash, record);
@@ -748,6 +748,33 @@ namespace enhanced_playcount {
 				service_ptr_t<queued_metadb_refresh_callback> update_cb =
 					new service_impl_t<queued_metadb_refresh_callback>(hashes);
 				cm->add_callback(update_cb);
+#else
+				std::lock_guard<std::mutex> guard(retrieving_scrobbles);	// TODO: disable option while pulling scrobbles
+				pfc::list_t<metadb_index_hash> hashes;
+				thread_counter = 0;
+
+				for (size_t t = 0; t < m_items.size(); t++) {
+					p_status.set_progress(t, m_items.size());
+					p_status.set_item_path(m_items[t].mdb_handle->get_path());
+
+					if (t >= 5) {
+						Sleep(200);	// rate limited to 5 requests per second, so wait 200ms between requests, but don't sleep on first 5 requests
+					}
+					pull_scrobbles(m_items[t].mdb_handle, false);
+
+					if (thread_hashes.get_count() >= 25) {
+						std::lock_guard<std::mutex> guard(adding_hashes_mutex);
+						main_thread_callback_add(fb2k::service_new<queued_metadb_refresh_callback>(thread_hashes));
+						thread_hashes.remove_all();
+					}
+				}
+				while (thread_counter < m_items.size()) {
+					// Is there a better way to wait for all the threads to complete?
+					Sleep(10);
+				}
+				main_thread_callback_add(fb2k::service_new<queued_metadb_refresh_callback>(thread_hashes));
+				thread_hashes.remove_all();
+#endif
 
 			} catch (std::exception const & e) {
 				m_failMsg = e.what();
@@ -842,10 +869,6 @@ namespace enhanced_playcount {
 			}
 		}
 		void on_volume_change(float p_new_val) {}
-		void pull_scrobbles(metadb_handle_ptr metadb) {
-			get_lastfm_scrobble* task = new get_lastfm_scrobble(metadb);
-			if (!simple_thread_pool::instance().enqueue(task)) delete task;
-		}
 
 		/* The play_callback_manager enumerates play_callback_static services and registers them automatically. We only have to provide the flags indicating which callbacks we want. */
 		virtual unsigned get_flags() {
