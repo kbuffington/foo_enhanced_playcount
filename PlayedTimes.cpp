@@ -17,8 +17,6 @@ using namespace enhanced_playcount;
 
 namespace enhanced_playcount {
 
-	std::string t_uint64_to_string(t_uint64 value, bool jsTimestamp);
-
 	PlaycountConfig const& config{ Config };
 
 	// Pattern by which we pin our data to.
@@ -44,31 +42,24 @@ namespace enhanced_playcount {
 		}
 	}
 
-	// A class that turns metadata + location info into hashes to which our data gets pinned by the backend.
-	class metadb_index_client_impl : public metadb_index_client {
-	public:
-		metadb_index_client_impl(const char * pinTo, bool toLower = false) {
-			static_api_ptr_t<titleformat_compiler>()->compile_force(m_keyObj, pinTo);
-			forceLowercase = toLower;
-		}
+	metadb_index_client_impl::metadb_index_client_impl(const char* pinTo, bool toLower = false) {
+		static_api_ptr_t<titleformat_compiler>()->compile_force(m_keyObj, pinTo);
+		forceLowercase = toLower;
+	}
 
-		metadb_index_hash transform(const file_info & info, const playable_location & location) {
-			pfc::string_formatter str, str_lower;
-			pfc::string_formatter *strPtr = &str;
-			m_keyObj->run_simple(location, &info, str);
-			if (forceLowercase) {
-				mb_to_lower(str, str_lower);
-				strPtr = &str_lower;
-			}
-			// Make MD5 hash of the string, then reduce it to 64-bit metadb_index_hash
-			return static_api_ptr_t<hasher_md5>()->process_single_string(*strPtr).xorHalve();
+	metadb_index_hash metadb_index_client_impl::transform(const file_info& info, const playable_location& location) {
+		pfc::string_formatter str, str_lower;
+		pfc::string_formatter* strPtr = &str;
+		m_keyObj->run_simple(location, &info, str);
+		if (forceLowercase) {
+			mb_to_lower(str, str_lower);
+			strPtr = &str_lower;
 		}
-	private:
-		bool forceLowercase;
-		titleformat_object::ptr m_keyObj;
-	};
+		// Make MD5 hash of the string, then reduce it to 64-bit metadb_index_hash
+		return static_api_ptr_t<hasher_md5>()->process_single_string(*strPtr).xorHalve();
+	}
 
-	static metadb_index_client_impl * clientByGUID(const GUID & guid) {
+	metadb_index_client_impl * clientByGUID(const GUID & guid) {
 		// Static instances, never destroyed (deallocated with the process), created first time we get here
 		// Using service_impl_single_t, reference counting disabled
 		// This is somewhat ugly, operating on raw pointers instead of service_ptr, but OK for this purpose
@@ -251,42 +242,8 @@ namespace enhanced_playcount {
 		return playTimes;
 	}
 
-	static std::vector<t_filetimestamp> playtimes_get(metadb_index_hash hash, bool last_fm_times) {
-		std::vector<t_filetimestamp> playTimes;
-		record_t record = getRecord(hash);
-
-		if (last_fm_times) {
-			return record.lastfmPlaytimes;
-		} else {
-			return record.foobarPlaytimes;
-		}
-
-		return playTimes;
-	}
-
-	static int playcount_get(metadb_index_hash hash, bool last_fm_times) {
-		record_t record = getRecord(hash);
-		int count = record.numLastfmPlays;
-
-		if (config.IncrementLastfmWithPlaycount && record.numFoobarPlays && record.numLastfmPlays) {
-			t_filetimestamp lastRecordedTime;
-			if (record.numLastfmPlays) {
-				std::vector<t_filetimestamp>::reverse_iterator it = record.lastfmPlaytimes.rbegin();
-				lastRecordedTime = *it;
-			}
-
-			std::vector<t_filetimestamp>::reverse_iterator rit = record.foobarPlaytimes.rbegin();
-			if (*rit > lastRecordedTime + 300 * filetimestamp_1second_increment) { // > lastRecordedTime + 5mins
-				count++;
-			}
-		}
-		return count;
-	}
 
 	titleformat_object::ptr first_and_last_played_script;
-	titleformat_object::ptr date_added_script;
-	titleformat_object::ptr first_played_script;
-	titleformat_object::ptr last_played_script;
 
 	class my_playback_statistics_collector : public playback_statistics_collector {
 	public:
@@ -343,275 +300,6 @@ namespace enhanced_playcount {
 	static service_factory_single_t<metadb_io_edit_callback_impl> g_my_metadb_io;
 
 
-	std::string t_uint64_to_string(t_uint64 value, bool jsTimestamp) {
-		std::ostringstream os;
-		if (jsTimestamp) {
-			t_uint64 jsValue = util::timestampWindowsToJS(value);	// convert to unix timestamp, then add milliseconds for JS
-			os << jsValue;
-		} else {
-			os << value;
-		}
-		return os.str();
-	}
-
-	static std::string getPlayTimesStr(std::vector<t_filetimestamp> playTimes, bool convertTimeStamp, bool jsTimeStamp) {
-		std::string str;
-		size_t index = 0;
-
-		str += "[";
-		for (std::vector<t_filetimestamp>::iterator it = playTimes.begin(); it != playTimes.end(); ++it, ++index) {
-			if (convertTimeStamp) {
-				str += "\"";
-				str.append(format_filetimestamp::format_filetimestamp(*it));
-				str += "\"";
-			} else {
-				str += t_uint64_to_string(*it, jsTimeStamp);
-			}
-			if (index + 1 < playTimes.size()) {
-				str.append(", ");
-			}
-		}
-		str += "]";
-		return str;
-	}
-
-	enum provided_fields {
-		PLAYED_TIMES,
-		PLAYED_TIMES_JS,
-		PLAYED_TIMES_RAW,
-
-		LASTFM_PLAYED_TIMES,
-		LASTFM_PLAYED_TIMES_JS,
-		LASTFM_PLAY_COUNT,
-		LASTFM_ADDED,
-		LASTFM_FIRST_PLAYED,
-		LASTFM_LAST_PLAYED,
-
-		FIRST_PLAYED_ENHANCED,
-		LAST_PLAYED_ENHANCED,
-		ADDED_ENHANCED,
-
-		MAX_NUM_FIELDS	// always last entry in this enum
-	};
-
-#define kNoDate 199999999990000000
-
-	class metadb_display_field_provider_impl : public metadb_display_field_provider {
-	public:
-		t_uint32 get_field_count() {
-			return MAX_NUM_FIELDS;
-		}
-		void get_field_name(t_uint32 index, pfc::string_base & out) {
-			PFC_ASSERT(index >= 0 && index < MAX_NUM_FIELDS);
-			switch (index) {
-				case PLAYED_TIMES:
-					out = "played_times";
-					break;
-				case PLAYED_TIMES_JS:
-					out = "played_times_js";
-					break;
-				case PLAYED_TIMES_RAW:
-					out = "played_times_raw";
-					break;
-				case LASTFM_PLAYED_TIMES:
-					out = "lastfm_played_times";
-					break;
-				case LASTFM_PLAYED_TIMES_JS:
-					out = "lastfm_played_times_js";
-					break;
-				case LASTFM_PLAY_COUNT:
-					out = "lastfm_play_count";
-					break;
-				case LASTFM_ADDED:
-					out = "lastfm_added";
-					break;
-				case LASTFM_FIRST_PLAYED:
-					out = "lastfm_first_played";
-					break;
-				case LASTFM_LAST_PLAYED:
-					out = "lastfm_last_played";
-					break;
-				case FIRST_PLAYED_ENHANCED:
-					out = "first_played_enhanced";
-					break;
-				case LAST_PLAYED_ENHANCED:
-					out = "last_played_enhanced";
-					break;
-				case ADDED_ENHANCED:
-					out = "added_enhanced";
-					break;
-			}
-		}
-		bool process_field(t_uint32 index, metadb_handle * handle, titleformat_text_out * out) {
-			PFC_ASSERT(index >= 0 && index < MAX_NUM_FIELDS);
-			metadb_index_hash hash;
-			if (!clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(handle, hash)) return false;
-			std::vector<t_filetimestamp> playTimes, lastfmPlayTimes;
-			t_filetimestamp fbTime = 0, lastfmTime = 0, firstPlayed = 0, lastPlayed = 0;
-			file_info_impl info;
-			unsigned int count;
-
-			switch (index) {
-				case PLAYED_TIMES:
-				case PLAYED_TIMES_JS:
-				case PLAYED_TIMES_RAW:
-					playTimes = playtimes_get(hash, false);
-					if (!playTimes.size()) {
-						out->write(titleformat_inputtypes::meta, "[]");
-					} else {
-						switch (index) {
-							case PLAYED_TIMES:
-								out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, true, false).c_str());
-								break;
-							case PLAYED_TIMES_JS:
-								out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, false, true).c_str());
-								break;
-							case PLAYED_TIMES_RAW:
-								out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, false, false).c_str());
-								break;
-						}
-					}
-					break;
-				case LASTFM_PLAYED_TIMES:
-				case LASTFM_PLAYED_TIMES_JS:
-					playTimes = playtimes_get(hash, true);
-					if (!playTimes.size()) {
-						out->write(titleformat_inputtypes::meta, "[]");
-					} else {
-						if (index == LASTFM_PLAYED_TIMES) {
-							out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, true, false).c_str());
-						} else {
-							out->write(titleformat_inputtypes::meta, getPlayTimesStr(playTimes, false, true).c_str());
-						}
-					}
-					break;
-				case LASTFM_PLAY_COUNT:
-					count = playcount_get(hash, true);
-					out->write_int(titleformat_inputtypes::meta, count);
-					if (count == 0) {
-						return false;
-					}
-					break;
-				case LASTFM_ADDED:
-				case LASTFM_FIRST_PLAYED:
-					playTimes = playtimes_get(hash, true);
-					if (!playTimes.size()) {
-						out->write(titleformat_inputtypes::meta, "N/A");
-						return false;
-					} else {
-						out->write(titleformat_inputtypes::meta,
-							format_filetimestamp::format_filetimestamp(playTimes.front()));
-					}
-					break;
-				case LASTFM_LAST_PLAYED:
-					playTimes = playtimes_get(hash, true);
-					if (!playTimes.size()) {
-						out->write(titleformat_inputtypes::meta, "N/A");
-						return false;
-					} else {
-						out->write(titleformat_inputtypes::meta,
-							format_filetimestamp::format_filetimestamp(playTimes.back()));
-					}
-					break;
-				case FIRST_PLAYED_ENHANCED:
-					playTimes = playtimes_get(hash, false);
-					lastfmPlayTimes = playtimes_get(hash, true);
-					fbTime = lastfmTime = kNoDate;
-					if (playTimes.size()) {
-						fbTime = playTimes.front();
-					}
-					if (lastfmPlayTimes.size()) {
-						lastfmTime = lastfmPlayTimes.front();
-					}
-					if (fbTime < lastfmTime) {
-						firstPlayed = fbTime;
-					} else {
-						firstPlayed = lastfmTime;
-					}
-					if (firstPlayed != kNoDate) {
-						out->write(titleformat_inputtypes::meta,
-							format_filetimestamp::format_filetimestamp(firstPlayed));
-					} else {
-						if (first_played_script.is_empty()) {
-							static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(first_played_script, "%first_played%");
-						}
-						pfc::string_formatter p_out;
-						handle->format_title(NULL, p_out, first_played_script, NULL);
-
-						if (strcmp(p_out.toString(), "N/A")) {
-							t_filetimestamp first_played = foobar2000_io::filetimestamp_from_string(p_out);
-							out->write(titleformat_inputtypes::meta,
-								format_filetimestamp::format_filetimestamp(first_played));
-						} else {
-							out->write(titleformat_inputtypes::meta, "N/A");
-							return false;
-						}
-					}
-					break;
-				case LAST_PLAYED_ENHANCED:
-					playTimes = playtimes_get(hash, false);
-					lastfmPlayTimes = playtimes_get(hash, true);
-					if (playTimes.size()) {
-						fbTime = playTimes.back();
-					}
-					if (lastfmPlayTimes.size()) {
-						lastfmTime = lastfmPlayTimes.back();
-					}
-					if (fbTime > lastfmTime) {
-						lastPlayed = fbTime;
-					} else {
-						lastPlayed = lastfmTime;
-					}
-					if (lastPlayed) {
-						out->write(titleformat_inputtypes::meta,
-							format_filetimestamp::format_filetimestamp(lastPlayed));
-					} else {
-						if (last_played_script.is_empty()) {
-							static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(last_played_script, "%last_played%");
-						}
-						pfc::string_formatter p_out;
-						handle->format_title(NULL, p_out, last_played_script, NULL);
-
-						if (strcmp(p_out.toString(), "N/A")) {
-							t_filetimestamp last_played = foobar2000_io::filetimestamp_from_string(p_out);
-							out->write(titleformat_inputtypes::meta,
-								format_filetimestamp::format_filetimestamp(last_played));
-						} else {
-							out->write(titleformat_inputtypes::meta, "N/A");
-							return false;
-						}
-					}
-					break;
-				case ADDED_ENHANCED:
-					if (date_added_script.is_empty()) {
-						static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(date_added_script, "%added%");
-					}
-					pfc::string_formatter p_out;
-
-					handle->format_title(NULL, p_out, date_added_script, NULL);
-					
-					if (strcmp(p_out.toString(), "N/A")) {
-						t_filetimestamp added = foobar2000_io::filetimestamp_from_string(p_out);
-
-						lastfmPlayTimes = playtimes_get(hash, true);
-						if (lastfmPlayTimes.size() && lastfmPlayTimes.front() < added) {
-							out->write(titleformat_inputtypes::meta,
-								format_filetimestamp::format_filetimestamp(lastfmPlayTimes.front()));
-						} else {
-							out->write(titleformat_inputtypes::meta,
-								format_filetimestamp::format_filetimestamp(added));
-						}
-					} else {
-						return false;	// can we get here?
-					}
-					break;
-			}
-			return true;
-		}
-	};
-
-	static service_factory_single_t<metadb_display_field_provider_impl> g_metadb_display_field_provider_impl;
-
 
 	// Context Menu functions start here
 	void ClearLastFmRecords(metadb_handle_list_cref items) {
@@ -645,20 +333,7 @@ namespace enhanced_playcount {
 		}
 	}
 
-	class queued_metadb_refresh_callback : public main_thread_callback {
-	private:
-		pfc::list_t<metadb_index_hash> m_hashes;
-
-	public:
-		queued_metadb_refresh_callback(pfc::list_t<metadb_index_hash> hashes) : m_hashes(hashes) {}
-
-		virtual void callback_run()
-		{
-			theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, m_hashes);
-		}
-	};
-
-	std::atomic_int32_t thread_counter = 0;
+	std::atomic_uint32_t thread_counter = 0;
 	std::mutex retrieving_scrobbles;
 	std::mutex adding_hashes_mutex;
 	pfc::list_t<metadb_index_hash> thread_hashes;
@@ -689,7 +364,9 @@ namespace enhanced_playcount {
 				// non-threaded path
 				pfc::list_t<metadb_index_hash> hashes;
 				hashes += hash;
-				main_thread_callback_add(fb2k::service_new<queued_metadb_refresh_callback>(hashes));
+				fb2k::inMainThread([=] {
+					theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, hashes);
+				});
 			}
 			else {
 				thread_counter++;
@@ -714,41 +391,6 @@ namespace enhanced_playcount {
 		void on_init(HWND p_wnd) {}
 		void run(threaded_process_status & p_status, abort_callback & p_abort) {
 			try {
-#if 0
-				pfc::avltree_t<metadb_index_hash> tmp;
-				for (size_t t = 0; t < m_items.size(); t++) {
-					p_status.set_progress(t, m_items.size());
-					p_status.set_item_path(m_items[t].mdb_handle->get_path());
-
-					record_t record = m_items[t].record;
-					std::vector<t_filetimestamp> playTimes;
-					playTimes = getLastFmPlaytimes(m_items[t].mdb_handle, m_items[t].hash,
-						m_items[t].record.lastfmPlaytimes.size() ? m_items[t].record.lastfmPlaytimes.back() : 0);
-					record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
-					record.numLastfmPlays = record.lastfmPlaytimes.size();
-
-					if (record.numFoobarPlays == 0) {
-						getFirstLastPlayedTimes(m_items[t].mdb_handle, &record);
-					}
-
-					// new code:
-					setRecord(m_items[t].hash, record);
-					tmp += m_items[t].hash;
-				}
-
-				// TODO: Update every 100 hashes?
-				pfc::list_t<metadb_index_hash> hashes;
-				for (auto iter = tmp.first(); iter.is_valid(); ++iter)
-				{
-					const metadb_index_hash hash = *iter;
-					hashes += hash;
-				}
-
-				static_api_ptr_t<main_thread_callback_manager> cm;
-				service_ptr_t<queued_metadb_refresh_callback> update_cb =
-					new service_impl_t<queued_metadb_refresh_callback>(hashes);
-				cm->add_callback(update_cb);
-#else
 				std::lock_guard<std::mutex> guard(retrieving_scrobbles);	// TODO: disable option while pulling scrobbles
 				pfc::list_t<metadb_index_hash> hashes;
 				thread_counter = 0;
@@ -764,17 +406,22 @@ namespace enhanced_playcount {
 
 					if (thread_hashes.get_count() >= 25) {
 						std::lock_guard<std::mutex> guard(adding_hashes_mutex);
-						main_thread_callback_add(fb2k::service_new<queued_metadb_refresh_callback>(thread_hashes));
+						pfc::list_t<metadb_index_hash> refresh_hash_list(thread_hashes);
 						thread_hashes.remove_all();
+						fb2k::inMainThread([=] {
+							theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, refresh_hash_list);
+						});
 					}
 				}
 				while (thread_counter < m_items.size()) {
 					// Is there a better way to wait for all the threads to complete?
 					Sleep(10);
 				}
-				main_thread_callback_add(fb2k::service_new<queued_metadb_refresh_callback>(thread_hashes));
+				pfc::list_t<metadb_index_hash> refresh_hash_list(thread_hashes);
 				thread_hashes.remove_all();
-#endif
+				fb2k::inMainThread([=] {
+					theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, refresh_hash_list);
+				});
 
 			} catch (std::exception const & e) {
 				m_failMsg = e.what();

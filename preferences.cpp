@@ -119,9 +119,9 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 	);
 	CreateTooltip(tooltips[4], m_hWnd, IDC_DELAY_PULLING_SCROBBLES,
 		L"Don't immediately pull scrobbles",
-		L"\nTo avoid hammering Last.fm, and for pulling scrobbles of songs you aren't actually"
-		L"listening to, or that no longer exist in your library, it is recommended to leave this"
-		L"option enabled. Scrobbles will be pulled after 2 seconds of playback."
+		L"\nTo avoid hammering Last.fm, and preventing the retrieval of scrobbles for songs you "
+		L"aren't actually listening to, or that no longer exist in your library, it is recommended "
+		L"to leave this option enabled. Scrobbles will be pulled after 2 seconds of playback."
 	);
 
 	return FALSE;

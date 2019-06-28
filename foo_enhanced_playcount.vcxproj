@@ -120,6 +120,7 @@ copy /Y "$(TargetPath)" "C:\Users\Kevin\Dropbox (Gap Strategies)\foobar2000"</Co
   <ItemGroup>
     <ClCompile Include="Bindings.cpp" />
     <ClCompile Include="contextmenu.cpp" />
+    <ClCompile Include="fields.cpp" />
     <ClCompile Include="initquit.cpp" />
     <ClCompile Include="lastfm.cpp" />
     <ClCompile Include="LruCache.cpp" />

@@ -28,4 +28,16 @@ namespace enhanced_playcount {
 
 	void GetLastfmScrobblesThreaded(metadb_handle_list_cref items, bool always_show_popup);
 	void ClearLastFmRecords(metadb_handle_list_cref items);
+
+	// A class that turns metadata + location info into hashes to which our data gets pinned by the backend.
+	class metadb_index_client_impl : public metadb_index_client {
+	public:
+		metadb_index_client_impl(const char* pinTo, bool toLower);
+		metadb_index_hash transform(const file_info& info, const playable_location& location);
+	private:
+		bool forceLowercase;
+		titleformat_object::ptr m_keyObj;
+	};
+
+	metadb_index_client_impl* clientByGUID(const GUID& guid);
 }

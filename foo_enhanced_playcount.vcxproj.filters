@@ -40,6 +40,7 @@
     <ClCompile Include="thread_pool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="fields.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\rapidjson\rapidjson.h">
