@@ -6,7 +6,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <RESOURCE_FILE>foo_enhanced_playcount.rc</RESOURCE_FILE>
-    <ShowAllFiles>true</ShowAllFiles>
+    <ShowAllFiles>false</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LocalDebuggerCommand>D:\Source\foobar2000_portable\foobar2000.exe</LocalDebuggerCommand>
