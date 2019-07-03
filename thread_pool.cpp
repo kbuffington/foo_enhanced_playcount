@@ -1,11 +1,6 @@
 #include "stdafx.h"
 #include "thread_pool.h"
 
-void simple_thread_task::run()
-{
-	PFC_ASSERT(!"Should not get here");
-}
-
 simple_thread_worker::simple_thread_worker() {}
 
 simple_thread_worker::~simple_thread_worker()
@@ -152,7 +147,9 @@ void simple_thread_pool::remove_worker_(simple_thread_worker* worker)
 	if (num_workers_ == 0)
 		SetEvent(empty_worker_);
 
-	main_thread_callback_add(fb2k::service_new<simple_thread_worker_remover>(worker));
+	fb2k::inMainThread([=] {
+		delete worker;
+	});
 }
 
 void simple_thread_pool::track(simple_thread_task* task)
@@ -181,15 +178,8 @@ void simple_thread_pool::untrack_all()
 	for (t_task_list::iterator iter = task_list_.first(); iter.is_valid(); ++iter)
 	{
 		task_list_.remove(iter);
-		delete *iter;
+		delete* iter;
 	}
 
 	ResetEvent(have_task_);
-}
-
-simple_thread_worker_remover::simple_thread_worker_remover(simple_thread_worker* worker) : worker_(worker) {}
-
-void simple_thread_worker_remover::callback_run()
-{
-	delete worker_;
 }

@@ -48,10 +48,10 @@
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(ProjectDir)include;C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\WTL90\Include;C:\Program Files %28x86%29\WTL\9.1\Include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)include;C:\Program Files (x86)\WTL\9.1\Include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(ProjectDir)include;C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\WTL90\Include;C:\Program Files %28x86%29\WTL\9.1\Include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)include;C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\WTL90\Include;C:\Program Files (x86)\WTL\10\Include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -120,6 +120,7 @@ copy /Y "$(TargetPath)" "C:\Users\Kevin\Dropbox (Gap Strategies)\foobar2000"</Co
   <ItemGroup>
     <ClCompile Include="Bindings.cpp" />
     <ClCompile Include="contextmenu.cpp" />
+    <ClCompile Include="fields.cpp" />
     <ClCompile Include="initquit.cpp" />
     <ClCompile Include="lastfm.cpp" />
     <ClCompile Include="LruCache.cpp" />
