@@ -8,7 +8,8 @@ class myinitquit : public initquit {
 public:
 	void on_init() {
 		console::print(COMPONENT_NAME": loaded");
-		enhanced_playcount::convertHashes();
+		foo_enhanced_playcount::convertHashes();
+		foo_enhanced_playcount::updateRecentScrobbles();
 	}
 	void on_quit() {
 		console::print(COMPONENT_NAME": unloading");

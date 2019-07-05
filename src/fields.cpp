@@ -4,7 +4,6 @@
 #include <sstream>
 #include "PlayedTimes.h"
 
-using namespace enhanced_playcount;
 using namespace foo_enhanced_playcount;
 
 extern PlaycountConfig const& config;

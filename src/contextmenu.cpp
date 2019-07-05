@@ -42,13 +42,13 @@ public:
 		}
 		return true;
 	}
-	void context_command(unsigned p_index,metadb_handle_list_cref p_data,const GUID& p_caller) {
+	void context_command(unsigned p_index, metadb_handle_list_cref p_data, const GUID& p_caller) {
 		switch(p_index) {
 			case cmd_clear_lastfm:
-				enhanced_playcount::ClearLastFmRecords(p_data);
+				ClearLastFmRecords(p_data);
 				break;
 			case cmd_get_scrobbles:
-				enhanced_playcount::GetLastfmScrobblesThreaded(p_data, true);
+				GetLastfmScrobblesThreaded(p_data, true);
 				break;
 			default:
 				uBugCheck();

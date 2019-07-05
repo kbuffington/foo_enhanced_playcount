@@ -25,6 +25,7 @@ PlaycountConfig::PlaycountConfig()
 {
 }
 
+// writes/saves data from cfg_var object into foobar config file
 void PlaycountConfig::get_data_raw(stream_writer* p_stream, abort_callback& p_abort)
 {
     p_stream->write_lendian_t(Version, p_abort);
@@ -49,6 +50,7 @@ void PlaycountConfig::get_data_raw(stream_writer* p_stream, abort_callback& p_ab
 
 }
 
+// Reads data from config file and sets in cfg_var object
 void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_abort, unsigned version)
 {
 	p_stream->read_lendian_t(cfg.EnableLastfmPlaycounts, p_abort);

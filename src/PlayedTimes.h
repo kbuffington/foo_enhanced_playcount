@@ -2,7 +2,7 @@
 #include <vector>
 #include "globals.h"
 
-namespace enhanced_playcount {
+namespace foo_enhanced_playcount {
 	void convertHashes(void);
 #define kCurrVersion   1
 
@@ -15,6 +15,14 @@ namespace enhanced_playcount {
 		std::vector<t_filetimestamp> lastfmPlaytimes;
 	};
 
+	typedef struct scrobbleData {
+		pfc::string8 title;
+		pfc::string8 artist;
+		pfc::string8 album;
+		scrobbleData(pfc::string8 _title, pfc::string8 _artist, pfc::string8 _album) : 
+			title(_title), artist(_artist), album(_album) {};
+	} scrobbleData;
+
 	record_t getRecord(metadb_index_hash hash, const GUID index_guid = guid_foo_enhanced_playcount_index);
 	void setRecord(metadb_index_hash hash, record_t record, const GUID index_guid = guid_foo_enhanced_playcount_index);
 	void getFirstLastPlayedTimes(metadb_handle_ptr metadb_handle, record_t *record);
@@ -26,8 +34,12 @@ namespace enhanced_playcount {
 		hash_record(metadb_handle_ptr mdb_ptr) : mdb_handle(mdb_ptr) {}
 	};
 
+	void pull_scrobbles(metadb_handle_ptr metadb, bool refresh = true);
 	void GetLastfmScrobblesThreaded(metadb_handle_list_cref items, bool always_show_popup);
 	void ClearLastFmRecords(metadb_handle_list_cref items);
+
+	void updateRecentScrobbles();
+	void refreshThreadHashes(unsigned int updateCount);
 
 	// A class that turns metadata + location info into hashes to which our data gets pinned by the backend.
 	class metadb_index_client_impl : public metadb_index_client {

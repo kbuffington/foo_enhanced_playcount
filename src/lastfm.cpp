@@ -4,9 +4,11 @@
 #include "lastfm.h"
 #include <sstream>
 #include <vector>
+#include <set>
 #include <locale>
 #include "resource.h"
 #include "PlaycountConfig.h"
+#include "PlayedTimes.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/encodings.h"
@@ -39,7 +41,7 @@ Lastfm::Lastfm(metadb_index_hash hashVal, string8 trackartist, string8 trackalbu
 #endif
 }
 
-std::vector<t_filetimestamp> Lastfm::queryLastfm(t_filetimestamp lastPlay) {
+std::vector<t_filetimestamp> Lastfm::queryByTrack(t_filetimestamp lastPlay) {
 	std::vector<t_filetimestamp> playTimes;
 	t_uint64 lastPlayed = 0;
 	bool done = false;
@@ -50,14 +52,6 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(t_filetimestamp lastPlay) {
 	}
 
 	while (configured && !done && page <= maxPages) {
-		//Query *query = new Query();
-		//query->add_apikey();
-		//query->add_param("user", user, false);
-		//query->add_param("artist", artist);
-		//query->add_param("limit", 200);
-		//query->add_param("format", "json");
-		//query->add_param("page", page++);
-
 		Query *trackQuery = new Query("user.getTrackScrobbles");
 		trackQuery->add_apikey();
 		trackQuery->add_param("user", user, false);
@@ -74,10 +68,29 @@ std::vector<t_filetimestamp> Lastfm::queryLastfm(t_filetimestamp lastPlay) {
 		//auto buf = query->perform(hash);
 		auto buf = trackQuery->perform(0);
 
-		done = parseJson(buf, playTimes, lastPlayed);
+		done = parseTrackJson(buf, playTimes, lastPlayed);
 	}
 
 	return playTimes;
+}
+
+std::vector<scrobbleData> Lastfm::queryRecentTracks()
+{
+	if (configured) {
+		Query* recentTracksQuery = new Query("user.getRecentTracks");
+		recentTracksQuery->add_apikey();
+		recentTracksQuery->add_param("user", user, false);
+		recentTracksQuery->add_param("limit", 200);
+		recentTracksQuery->add_param("format", "json");
+
+		auto buf = recentTracksQuery->perform(0);
+
+		return parseRecentTracksJson(buf);
+	}
+	else {
+		std::vector<scrobbleData> m_vec;
+		return m_vec;
+	}
 }
 
 bool hasNonPunctChars(char *p) {
@@ -143,24 +156,19 @@ bool fieldsEq(pfc::string8 songInfo, const pfc::string8 value) {
 	return stringCompareCaseInsensitive(info, val) == 0;
 }
 
-bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& playTimes, t_uint64 lastPlayed) {
+bool Lastfm::parseTrackJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& playTimes, t_uint64 lastPlayed) {
 	Document d;
 	d.Parse(buffer);
-	int count;
+	int count = 0;
 	bool done = false;
 
-	if (!d.HasMember("artisttracks") && !d.HasMember("trackscrobbles")) {
+	if (!d.HasMember("trackscrobbles")) {
 		if (d.HasMember("error") && d.HasMember("message")) {
 			FB2K_console_formatter() << "last.fm Error: " << d["message"].GetString();
 		}
 		return true;
 	}
-	Value& a = d;	// should just be: const Value& a = d["trackscrobbles"]
-	if (d.HasMember("artisttracks")) {
-		a = d["artisttracks"];
-	} else {
-		a = d["trackscrobbles"];
-	}
+	const Value& a = d["trackscrobbles"];
 	if (a.IsObject()) {
 		if (!a.HasMember("track"))
 			return true;
@@ -210,5 +218,76 @@ bool Lastfm::parseJson(const pfc::string8 buffer, std::vector<t_filetimestamp>& 
 		}
 	}
 
-	return done || count < 200;
+	return done || (count < 200);
+}
+
+struct scrobble_compare {
+	bool operator() (const scrobbleData& lhs, const scrobbleData& rhs) const {
+		stringstream s1, s2;
+		s1 << lhs.artist << lhs.title << lhs.album;
+		s2 << rhs.artist << rhs.title << rhs.album;
+		return s1.str() < s2.str();
+	}
+};
+
+int unsortedRemoveDuplicates(std::vector<scrobbleData>& scrobbles)
+{
+	std::set<scrobbleData, scrobble_compare> seenScrobbles; //log(n) existence check
+
+	auto itr = begin(scrobbles);
+	while (itr != end(scrobbles))
+	{
+		if (seenScrobbles.find(*itr) != end(seenScrobbles)) //seen? erase it
+			itr = scrobbles.erase(itr); //itr now points to next element
+		else
+		{
+			seenScrobbles.insert(*itr);
+			itr++;
+		}
+	}
+
+	return seenScrobbles.size();
+}
+
+std::vector<scrobbleData> Lastfm::parseRecentTracksJson(const pfc::string8 buffer) {
+	Document d;
+	d.Parse(buffer);
+	std::vector<scrobbleData> scrobble_vec;
+
+	if (!d.HasMember("recenttracks")) {
+		if (d.HasMember("error") && d.HasMember("message")) {
+			FB2K_console_formatter() << "last.fm Error: " << d["message"].GetString();
+		}
+	} else {
+		const Value& a = d["recenttracks"];
+		if (a.IsObject()) {
+			if (!a.HasMember("track"))
+				return scrobble_vec;
+			const Value& t = a["track"];
+			if (t.IsArray()) {
+				for (SizeType i = 0; i < t.Size(); i++) { // rapidjson uses SizeType instead of size_t.
+					const Value& track = t[i];
+					if (track.IsObject()) {
+						const Value& name = track["name"];
+						const Value& al = track["album"];
+						const Value& ar = track["artist"];
+						pfc::string8 key;
+						pfc::string8 lfmAlbum = static_cast<pfc::string8>(al["#text"].GetString());	// TODO: skip this?
+						pfc::string8 lfmArtist = static_cast<pfc::string8>(ar["#text"].GetString());
+						pfc::string8 lfmTitle = static_cast<pfc::string8>(name.GetString());
+						key << lfmArtist << " - " << lfmTitle << " - " << lfmAlbum;
+
+						scrobble_vec.push_back(scrobbleData(lfmTitle, lfmArtist, lfmAlbum));
+					}
+				}
+			}
+		}
+	}
+	unsortedRemoveDuplicates(scrobble_vec);
+	std::reverse(scrobble_vec.begin(), scrobble_vec.end());	// TODO: reverse for new pulls, don't for legacy pulls
+	//for (auto const& sc : scrobble_vec) {
+	//	FB2K_console_formatter() << sc.artist << " - " << sc.title << " - " << sc.album;
+	//}
+
+	return scrobble_vec;
 }

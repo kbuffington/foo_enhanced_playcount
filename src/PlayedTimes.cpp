@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "lastfm.h"
 #include <vector>
+#include <set>
 #include <sstream>
 #include "util.h"
 #include "globals.h"
@@ -13,9 +14,8 @@
 
 using namespace foo_enhanced_playcount;
 using namespace pfc;
-using namespace enhanced_playcount;
 
-namespace enhanced_playcount {
+namespace foo_enhanced_playcount {
 
 	PlaycountConfig const& config{ Config };
 
@@ -208,6 +208,81 @@ namespace enhanced_playcount {
 		theAPI()->set_user_data(index_guid, hash, buf, size * sizeof(int));
 	}
 
+	std::atomic_uint32_t thread_counter = 0;
+	std::mutex retrieving_scrobbles;
+	std::mutex adding_hashes_mutex;
+	pfc::list_t<metadb_index_hash> thread_hashes;
+
+	class get_recent_scrobbles : public simple_thread_task {
+	public:
+		get_recent_scrobbles(std::vector<metadb_handle_ptr> items) : m_handles(items) {}
+
+		void run() override
+		{
+			try {
+				thread_counter = 0;
+
+				for (auto const& handle : m_handles) {
+					Sleep(300);	// background pulling so go slower than regular pulls & rate limit
+					pull_scrobbles(handle, false);
+
+					refreshThreadHashes(25);
+				}
+				while (thread_counter < m_handles.size()) {
+					// Is there a better way to wait for all the threads to complete?
+					Sleep(10);
+				}
+				pfc::list_t<metadb_index_hash> refresh_hash_list(thread_hashes);
+				thread_hashes.remove_all();
+				fb2k::inMainThread([=] {
+					theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, refresh_hash_list);
+				});
+			}
+			catch (std::exception const& e) {
+				m_failMsg = e.what();
+			}
+		}
+	private:
+		pfc::string8 m_failMsg;
+		const std::vector<metadb_handle_ptr> m_handles;
+	};
+
+	void updateRecentScrobbles() {
+		if (Config.EnableLastfmPlaycounts) {
+			Lastfm* lfm = new Lastfm();
+			std::vector<scrobbleData> scrobble_vec = lfm->queryRecentTracks();
+			metadb_handle_list allLibraryItems;
+			library_manager::get()->get_all_items(allLibraryItems);
+			std::vector<metadb_handle_ptr> handle_vec;
+
+			for (auto const& s : scrobble_vec)
+			{
+				search_filter_v2::ptr filter;
+				string8 query;
+				metadb_handle_list library = allLibraryItems;
+
+				try {
+					query << "ARTIST IS " << s.artist << " AND TITLE IS " << s.title << " AND ALBUM IS " << s.album;
+					filter = search_filter_manager_v2::get()->create_ex(query, new service_impl_t<completion_notify_dummy>(), search_filter_manager_v2::KFlagSuppressNotify);
+				}
+				catch (...) {}
+				pfc::array_t<bool> mask;
+				mask.set_size(library.get_count());
+				filter->test_multi(library, mask.get_ptr());
+				library.filter_mask(mask.get_ptr());
+				if (library.get_count() > 0) {
+					for (size_t i = 0; i < library.get_count(); i++) {
+						handle_vec.push_back(library[i]);
+					}
+				}
+			}
+			std::set<metadb_handle_ptr> s(handle_vec.begin(), handle_vec.end());
+			handle_vec.assign(s.begin(), s.end());
+			get_recent_scrobbles* task = new get_recent_scrobbles(handle_vec);
+			if (!simple_thread_pool::instance().enqueue(task)) delete task;
+		}
+	}
+
 	std::vector<t_filetimestamp> getLastFmPlaytimes(metadb_handle_ptr p_item, metadb_index_hash hash, const t_filetimestamp lastPlay) {
 		std::vector<t_filetimestamp> playTimes;
 		file_info_impl info;
@@ -230,12 +305,16 @@ namespace enhanced_playcount {
 				}
 				
 				Lastfm *lfm = new Lastfm(hash, artist, album, title);
-				playTimes = lfm->queryLastfm(lastPlay);
+				playTimes = lfm->queryByTrack(lastPlay);
 #ifdef DEBUG
 				t_filetimestamp end = filetimestamp_from_system_timer();
 				time << "Time Elapsed: " << (end - start) / 10000 << "ms - ";
 #endif
-				FB2K_console_formatter() << time << "Found " << playTimes.size() << " plays in last.fm (since last recorded scrobble) of " << title;
+				pfc::string8 lastPlayMsg;
+				if (lastPlay > 0) {
+					lastPlayMsg << " (since last known scrobble at " << format_filetimestamp::format_filetimestamp(lastPlay) << ")";
+				}
+				FB2K_console_formatter() << time << "Found " << playTimes.size() << " scrobbles in last.fm" << lastPlayMsg << " of \"" << title << "\"";
 			}
 		}
 
@@ -299,8 +378,6 @@ namespace enhanced_playcount {
 
 	static service_factory_single_t<metadb_io_edit_callback_impl> g_my_metadb_io;
 
-
-
 	// Context Menu functions start here
 	void ClearLastFmRecords(metadb_handle_list_cref items) {
 		try {
@@ -332,11 +409,6 @@ namespace enhanced_playcount {
 			popup_message::g_complain("Could not remove last.fm plays", e);
 		}
 	}
-
-	std::atomic_uint32_t thread_counter = 0;
-	std::mutex retrieving_scrobbles;
-	std::mutex adding_hashes_mutex;
-	pfc::list_t<metadb_index_hash> thread_hashes;
 
 	class get_lastfm_scrobble : public simple_thread_task {
 	public:
@@ -380,7 +452,18 @@ namespace enhanced_playcount {
 		bool doRefresh;
 	};
 
-	void pull_scrobbles(metadb_handle_ptr metadb, bool refresh = true) {
+	void refreshThreadHashes(unsigned int updateCount) {
+		if (thread_hashes.get_count() >= updateCount) {
+			std::lock_guard<std::mutex> guard(adding_hashes_mutex);
+			pfc::list_t<metadb_index_hash> refresh_hash_list(thread_hashes);
+			thread_hashes.remove_all();
+			fb2k::inMainThread([=] {
+				theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, refresh_hash_list);
+			});
+		}
+	}
+
+	void pull_scrobbles(metadb_handle_ptr metadb, bool refresh) {
 		get_lastfm_scrobble* task = new get_lastfm_scrobble(metadb, refresh);
 		if (!simple_thread_pool::instance().enqueue(task)) delete task;
 	}
@@ -392,7 +475,6 @@ namespace enhanced_playcount {
 		void run(threaded_process_status & p_status, abort_callback & p_abort) {
 			try {
 				std::lock_guard<std::mutex> guard(retrieving_scrobbles);	// TODO: disable option while pulling scrobbles
-				pfc::list_t<metadb_index_hash> hashes;
 				thread_counter = 0;
 
 				for (size_t t = 0; t < m_items.size(); t++) {
@@ -404,14 +486,7 @@ namespace enhanced_playcount {
 					}
 					pull_scrobbles(m_items[t].mdb_handle, false);
 
-					if (thread_hashes.get_count() >= 25) {
-						std::lock_guard<std::mutex> guard(adding_hashes_mutex);
-						pfc::list_t<metadb_index_hash> refresh_hash_list(thread_hashes);
-						thread_hashes.remove_all();
-						fb2k::inMainThread([=] {
-							theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, refresh_hash_list);
-						});
-					}
+					refreshThreadHashes(25);
 				}
 				while (thread_counter < m_items.size()) {
 					// Is there a better way to wait for all the threads to complete?
@@ -480,6 +555,7 @@ namespace enhanced_playcount {
 				hash_record_list[t].record = getRecord(hash_record_list[t].hash);
 			}
 
+			// TODO: stop using hash_record_list and replace with vector<metadb_handle_ptr>
 			service_ptr_t<threaded_process_callback> cb = new service_impl_t<get_lastfm_scrobbles>(hash_record_list);
 			static_api_ptr_t<threaded_process>()->run_modeless(
 				cb,
