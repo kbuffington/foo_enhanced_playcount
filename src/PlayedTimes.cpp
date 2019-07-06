@@ -222,7 +222,6 @@ namespace foo_enhanced_playcount {
 		void run() override
 		{
 			try {
-				pullingRecentScrobbles = true;
 				std::lock_guard<std::mutex> guard(retrieving_scrobbles);
 				thread_counter = 0;
 
@@ -281,50 +280,79 @@ namespace foo_enhanced_playcount {
 		return vec.size();
 	}
 
-	void updateRecentScrobbles(bool newScrobbles) {
-		if (Config.EnableLastfmPlaycounts) {
-			Lastfm* lfm = new Lastfm();
-			std::vector<scrobbleData> scrobble_vec = lfm->queryRecentTracks(newScrobbles, newScrobbles ? Config.latestScrobbleChecked : Config.earliestScrobbleChecked);
-			metadb_handle_list allLibraryItems;
-			library_manager::get()->get_all_items(allLibraryItems);
-			std::vector<metadb_handle_ptr> handle_vec;
+	class updateRecentScrobbles : public simple_thread_task {
+	public:
+		updateRecentScrobbles(const bool pullNew, metadb_handle_list_cref library) : 
+			newScrobbles(pullNew), allLibraryItems(library) {}
 
-			for (auto const& s : scrobble_vec)
-			{
-				search_filter_v2::ptr filter;
-				string8 query;
-				metadb_handle_list library = allLibraryItems;
+		void run() override {
+			if (Config.EnableLastfmPlaycounts) {
+				pullingRecentScrobbles = true;
+				Lastfm* lfm = new Lastfm();
+				std::vector<scrobbleData> scrobble_vec = lfm->queryRecentTracks(newScrobbles, newScrobbles ? Config.latestScrobbleChecked : Config.earliestScrobbleChecked);
+				std::vector<metadb_handle_ptr> handle_vec;
 
-				try {
-					query << "ARTIST IS " << s.artist << " AND TITLE IS " << s.title;
-					if (Config.CompareAlbumFields && s.album.length() > 0) {
-						query << " AND ALBUM IS " << s.album;
-					}
-					filter = search_filter_manager_v2::get()->create_ex(query, new service_impl_t<completion_notify_dummy>(), search_filter_manager_v2::KFlagSuppressNotify);
-				}
-				catch (...) {}
+#ifdef DEBUG
+				t_filetimestamp start = filetimestamp_from_system_timer();
+#endif
 				pfc::array_t<bool> mask;
-				mask.set_size(library.get_count());
-				filter->test_multi(library, mask.get_ptr());
-				library.filter_mask(mask.get_ptr());
-				if (library.get_count() > 0) {
-					for (size_t i = 0; i < library.get_count(); i++) {
-						metadb_index_hash hash;
-						clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(library[i], hash);
-						record_t record = getRecord(hash);
-						if (!record.lastfmPlaytimes.size() ||
+				mask.set_size(allLibraryItems.get_count());
+				for (auto const& s : scrobble_vec)
+				{
+					search_filter_v2::ptr filter;
+					string8 query;
+					metadb_handle_list library = allLibraryItems;
+
+					try {
+						query << "ARTIST IS \"" << s.artist << "\" AND TITLE IS \"" << s.title << "\"";
+						if (Config.CompareAlbumFields && s.album.length() > 0) {
+							query << " AND ALBUM IS \"" << s.album << "\"";
+						}
+						filter = search_filter_manager_v2::get()->create_ex(query, new service_impl_t<completion_notify_dummy>(), search_filter_manager_v2::KFlagSuppressNotify);
+					}
+					catch (...) {
+						// TODO: safely handle exceptions here once we've weeded out errors
+					}
+					filter->test_multi(library, mask.get_ptr());
+					library.filter_mask(mask.get_ptr());
+					if (library.get_count() > 0) {
+						for (size_t i = 0; i < library.get_count(); i++) {
+							metadb_index_hash hash;
+							clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(library[i], hash);
+							record_t record = getRecord(hash);
+							if (!record.lastfmPlaytimes.size() ||
 								(fileTimeWtoU(record.lastfmPlaytimes.back()) - 60) < s.scrobble_time) {
-							handle_vec.push_back(library[i]);
-						} else if (record.lastfmPlaytimes.size()) {
-							updateSavedScrobbleTimes(record.lastfmPlaytimes.back());
+								handle_vec.push_back(library[i]);
+							}
+							else if (record.lastfmPlaytimes.size()) {
+								updateSavedScrobbleTimes(record.lastfmPlaytimes.back());
+							}
 						}
 					}
 				}
+				RemoveDuplicatesKeepOrder(handle_vec);
+#ifdef DEBUG
+				t_filetimestamp end = filetimestamp_from_system_timer();
+				FB2K_console_formatter() << "Calculating scrobbles to pull: " << (end - start) / 10000 << "ms";
+#endif
+				get_recent_scrobbles* task = new get_recent_scrobbles(handle_vec);
+				if (!simple_thread_pool::instance().enqueue(task)) delete task;
 			}
-			RemoveDuplicatesKeepOrder(handle_vec);
-			get_recent_scrobbles* task = new get_recent_scrobbles(handle_vec);
-			if (!simple_thread_pool::instance().enqueue(task)) delete task;
 		}
+	private:
+		bool newScrobbles;
+		metadb_handle_list allLibraryItems;
+	};
+
+	void updateRecentScrobblesThreaded(bool newScrobbles) {
+		metadb_handle_list allLibraryItems;
+		library_manager::get()->get_all_items(allLibraryItems);
+		if (!newScrobbles) {
+			FB2K_console_formatter() << "Starting to pull legacy scrobbles (before " << Config.earliestScrobbleChecked << ")";
+		}
+
+		updateRecentScrobbles* task = new updateRecentScrobbles(newScrobbles, allLibraryItems);
+		if (!simple_thread_pool::instance().enqueue(task)) delete task;
 	}
 
 	std::vector<t_filetimestamp> getLastFmPlaytimes(metadb_handle_ptr p_item, metadb_index_hash hash, const t_filetimestamp lastPlay) {
@@ -491,7 +519,6 @@ namespace foo_enhanced_playcount {
 				if (isRecent && record.lastfmPlaytimes.size()) {
 					updateSavedScrobbleTimes(record.lastfmPlaytimes.back());
 				}
-				FB2K_console_formatter() << Config.latestScrobbleChecked << " - early: " << Config.earliestScrobbleChecked;
 			}
 		}
 
@@ -623,8 +650,8 @@ namespace foo_enhanced_playcount {
 				pull_scrobbles(metadb);
 			}
 			tracksSinceScrobblePull++;
-			if (tracksSinceScrobblePull > 2 && !pullingRecentScrobbles) {
-				updateRecentScrobbles(false);
+			if (tracksSinceScrobblePull > 12 && !pullingRecentScrobbles) {
+				updateRecentScrobblesThreaded(false);
 				tracksSinceScrobblePull = 0;
 			}
 		}

@@ -39,7 +39,7 @@ namespace foo_enhanced_playcount {
 	void GetLastfmScrobblesThreaded(metadb_handle_list_cref items, bool always_show_popup);
 	void ClearLastFmRecords(metadb_handle_list_cref items);
 
-	void updateRecentScrobbles(bool newScrobbles = true);
+	void updateRecentScrobblesThreaded(bool newScrobbles = true);
 	void refreshThreadHashes(unsigned int updateCount);
 
 	// A class that turns metadata + location info into hashes to which our data gets pinned by the backend.

@@ -80,7 +80,7 @@ std::vector<scrobbleData> Lastfm::queryRecentTracks(bool newScrobbles, t_filetim
 	bool done = false;
 	int page = 1;
 	int maxPages = 5;
-	int limit = 200;
+	int limit = 100;
 
 	while (configured && !done && page <= maxPages) {
 		Query* recentTracksQuery = new Query("user.getRecentTracks");
@@ -102,11 +102,6 @@ std::vector<scrobbleData> Lastfm::queryRecentTracks(bool newScrobbles, t_filetim
 	if (newScrobbles) {
 		std::reverse(m_vec.begin(), m_vec.end());	// reverse newest pulls so we check from oldest to newest
 	}
-#ifdef DEBUG
-	for (const auto& sd : m_vec) {
-		FB2K_console_formatter() << sd.artist << " - \"" << sd.title << "\" - " << sd.album;
-	}
-#endif
 	return m_vec;
 }
 
