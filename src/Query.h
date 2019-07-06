@@ -8,6 +8,7 @@ namespace foo_enhanced_playcount {
 		void add_param(const char *param, pfc::string8 value, bool encode = true);
 		void add_param(const char *param, int value);
 		void add_param(const char *param, unsigned int value);
+		void add_param(const char* param, t_filetimestamp);
 		void add_apikey();
 		pfc::string8 perform(metadb_index_hash hash, abort_callback &callback = abort_callback_dummy());
 		pfc::string8 getCacheSize();

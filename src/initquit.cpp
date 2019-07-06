@@ -9,7 +9,7 @@ public:
 	void on_init() {
 		console::print(COMPONENT_NAME": loaded");
 		foo_enhanced_playcount::convertHashes();
-		foo_enhanced_playcount::updateRecentScrobbles();
+		foo_enhanced_playcount::updateRecentScrobbles(true);
 	}
 	void on_quit() {
 		console::print(COMPONENT_NAME": unloading");

@@ -24,13 +24,16 @@ namespace foo_enhanced_playcount {
 		pfc::string8 UnusedStr3;
 
 		unsigned int CacheSize;
+		t_filetimestamp latestScrobbleChecked;
+		t_filetimestamp earliestScrobbleChecked;
 
 	private:
 		virtual void get_data_raw(stream_writer* p_stream, abort_callback& p_abort) override;
 		virtual void set_data_raw(stream_reader* p_stream, t_size p_sizehint,
 			abort_callback& p_abort) override;
 
-		static unsigned const Version = 2;
+		static unsigned const Version = 3;
+		t_filetimestamp latestCache, earliestCache;	// we don't want to overwrite these typically
 	};
 
 	class NOVTABLE PlaycountConfigNotify : public service_base {

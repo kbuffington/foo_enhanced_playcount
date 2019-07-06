@@ -74,23 +74,40 @@ std::vector<t_filetimestamp> Lastfm::queryByTrack(t_filetimestamp lastPlay) {
 	return playTimes;
 }
 
-std::vector<scrobbleData> Lastfm::queryRecentTracks()
+std::vector<scrobbleData> Lastfm::queryRecentTracks(bool newScrobbles, t_filetimestamp timestamp)
 {
-	if (configured) {
+	std::vector<scrobbleData> m_vec;
+	bool done = false;
+	int page = 1;
+	int maxPages = 5;
+	int limit = 200;
+
+	while (configured && !done && page <= maxPages) {
 		Query* recentTracksQuery = new Query("user.getRecentTracks");
 		recentTracksQuery->add_apikey();
 		recentTracksQuery->add_param("user", user, false);
-		recentTracksQuery->add_param("limit", 200);
+		recentTracksQuery->add_param("limit", limit);
 		recentTracksQuery->add_param("format", "json");
+		if (newScrobbles) {
+			recentTracksQuery->add_param("from", timestamp);
+		} else {
+			recentTracksQuery->add_param("to", timestamp);
+		}
+		recentTracksQuery->add_param("page", page++);
 
 		auto buf = recentTracksQuery->perform(0);
 
-		return parseRecentTracksJson(buf);
+		done = parseRecentTracksJson(buf, limit, m_vec);
 	}
-	else {
-		std::vector<scrobbleData> m_vec;
-		return m_vec;
+	if (newScrobbles) {
+		std::reverse(m_vec.begin(), m_vec.end());	// reverse newest pulls so we check from oldest to newest
 	}
+#ifdef DEBUG
+	for (const auto& sd : m_vec) {
+		FB2K_console_formatter() << sd.artist << " - \"" << sd.title << "\" - " << sd.album;
+	}
+#endif
+	return m_vec;
 }
 
 bool hasNonPunctChars(char *p) {
@@ -249,10 +266,11 @@ int unsortedRemoveDuplicates(std::vector<scrobbleData>& scrobbles)
 	return seenScrobbles.size();
 }
 
-std::vector<scrobbleData> Lastfm::parseRecentTracksJson(const pfc::string8 buffer) {
+bool Lastfm::parseRecentTracksJson(const pfc::string8 buffer, const int limit, std::vector<scrobbleData>& scrobble_vec) {
+	bool done = false;
+	int count = 0;
 	Document d;
 	d.Parse(buffer);
-	std::vector<scrobbleData> scrobble_vec;
 
 	if (!d.HasMember("recenttracks")) {
 		if (d.HasMember("error") && d.HasMember("message")) {
@@ -262,32 +280,42 @@ std::vector<scrobbleData> Lastfm::parseRecentTracksJson(const pfc::string8 buffe
 		const Value& a = d["recenttracks"];
 		if (a.IsObject()) {
 			if (!a.HasMember("track"))
-				return scrobble_vec;
+				return true;
 			const Value& t = a["track"];
 			if (t.IsArray()) {
+				count = t.Size();
 				for (SizeType i = 0; i < t.Size(); i++) { // rapidjson uses SizeType instead of size_t.
 					const Value& track = t[i];
 					if (track.IsObject()) {
+						if (track.HasMember("@attr")) {
+							const Value& attr = track["@attr"];
+							if (attr.IsObject() && attr.HasMember("nowplaying") && fieldsEq(attr["nowplaying"].GetString(), "true")) {
+								continue; // skip nowplaying song
+							}
+						}
 						const Value& name = track["name"];
 						const Value& al = track["album"];
 						const Value& ar = track["artist"];
-						pfc::string8 key;
+						const char* date = "";
+						t_filetimestamp time = 0;
+						if (track.HasMember("date")) {	// shouldn't need this check, but just in case...
+							const Value& dt = track["date"];
+							if (dt.IsObject()) {
+								date = dt["uts"].GetString();
+								time = atoi(date);
+							}
+						}
 						pfc::string8 lfmAlbum = static_cast<pfc::string8>(al["#text"].GetString());	// TODO: skip this?
 						pfc::string8 lfmArtist = static_cast<pfc::string8>(ar["#text"].GetString());
 						pfc::string8 lfmTitle = static_cast<pfc::string8>(name.GetString());
-						key << lfmArtist << " - " << lfmTitle << " - " << lfmAlbum;
-
-						scrobble_vec.push_back(scrobbleData(lfmTitle, lfmArtist, lfmAlbum));
+					
+						scrobble_vec.push_back(scrobbleData(lfmTitle, lfmArtist, lfmAlbum, time));
 					}
 				}
 			}
 		}
 	}
 	unsortedRemoveDuplicates(scrobble_vec);
-	std::reverse(scrobble_vec.begin(), scrobble_vec.end());	// TODO: reverse for new pulls, don't for legacy pulls
-	//for (auto const& sc : scrobble_vec) {
-	//	FB2K_console_formatter() << sc.artist << " - " << sc.title << " - " << sc.album;
-	//}
 
-	return scrobble_vec;
+	return done || (count < limit);
 }

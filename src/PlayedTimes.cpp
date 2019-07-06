@@ -3,6 +3,7 @@
 #include <vector>
 #include <set>
 #include <sstream>
+#include <algorithm>
 #include "util.h"
 #include "globals.h"
 #include "PlaycountConfig.h"
@@ -209,6 +210,7 @@ namespace foo_enhanced_playcount {
 	}
 
 	std::atomic_uint32_t thread_counter = 0;
+	std::atomic<bool> pullingRecentScrobbles = false;
 	std::mutex retrieving_scrobbles;
 	std::mutex adding_hashes_mutex;
 	pfc::list_t<metadb_index_hash> thread_hashes;
@@ -220,11 +222,13 @@ namespace foo_enhanced_playcount {
 		void run() override
 		{
 			try {
+				pullingRecentScrobbles = true;
+				std::lock_guard<std::mutex> guard(retrieving_scrobbles);
 				thread_counter = 0;
 
 				for (auto const& handle : m_handles) {
 					Sleep(300);	// background pulling so go slower than regular pulls & rate limit
-					pull_scrobbles(handle, false);
+					pull_scrobbles(handle, false, true);
 
 					refreshThreadHashes(25);
 				}
@@ -241,16 +245,46 @@ namespace foo_enhanced_playcount {
 			catch (std::exception const& e) {
 				m_failMsg = e.what();
 			}
+			pullingRecentScrobbles = false;
 		}
 	private:
 		pfc::string8 m_failMsg;
 		const std::vector<metadb_handle_ptr> m_handles;
 	};
 
-	void updateRecentScrobbles() {
+	void updateSavedScrobbleTimes(t_filetimestamp scrobble_time) {
+		t_filetimestamp timestamp = fileTimeWtoU(scrobble_time) - 60;
+		if (timestamp > Config.latestScrobbleChecked) {
+			Config.latestScrobbleChecked = timestamp;
+		}
+		if (timestamp < Config.earliestScrobbleChecked || !Config.earliestScrobbleChecked) {
+			Config.earliestScrobbleChecked = timestamp;
+		}
+	}
+
+	template<typename T>
+	size_t RemoveDuplicatesKeepOrder(std::vector<T>& vec)
+	{
+		std::set<T> seen;
+
+		auto newEnd = std::remove_if(vec.begin(), vec.end(), [&seen](const T& value)
+			{
+				if (seen.find(value) != std::end(seen))
+					return true;
+
+				seen.insert(value);
+				return false;
+			});
+
+		vec.erase(newEnd, vec.end());
+
+		return vec.size();
+	}
+
+	void updateRecentScrobbles(bool newScrobbles) {
 		if (Config.EnableLastfmPlaycounts) {
 			Lastfm* lfm = new Lastfm();
-			std::vector<scrobbleData> scrobble_vec = lfm->queryRecentTracks();
+			std::vector<scrobbleData> scrobble_vec = lfm->queryRecentTracks(newScrobbles, newScrobbles ? Config.latestScrobbleChecked : Config.earliestScrobbleChecked);
 			metadb_handle_list allLibraryItems;
 			library_manager::get()->get_all_items(allLibraryItems);
 			std::vector<metadb_handle_ptr> handle_vec;
@@ -262,7 +296,10 @@ namespace foo_enhanced_playcount {
 				metadb_handle_list library = allLibraryItems;
 
 				try {
-					query << "ARTIST IS " << s.artist << " AND TITLE IS " << s.title << " AND ALBUM IS " << s.album;
+					query << "ARTIST IS " << s.artist << " AND TITLE IS " << s.title;
+					if (Config.CompareAlbumFields) {
+						query << " AND ALBUM IS " << s.album;
+					}
 					filter = search_filter_manager_v2::get()->create_ex(query, new service_impl_t<completion_notify_dummy>(), search_filter_manager_v2::KFlagSuppressNotify);
 				}
 				catch (...) {}
@@ -272,12 +309,19 @@ namespace foo_enhanced_playcount {
 				library.filter_mask(mask.get_ptr());
 				if (library.get_count() > 0) {
 					for (size_t i = 0; i < library.get_count(); i++) {
-						handle_vec.push_back(library[i]);
+						metadb_index_hash hash;
+						clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(library[i], hash);
+						record_t record = getRecord(hash);
+						if (!record.lastfmPlaytimes.size() ||
+								(fileTimeWtoU(record.lastfmPlaytimes.back()) - 60) < s.scrobble_time) {
+							handle_vec.push_back(library[i]);
+						} else if (record.lastfmPlaytimes.size()) {
+							updateSavedScrobbleTimes(record.lastfmPlaytimes.back());
+						}
 					}
 				}
 			}
-			std::set<metadb_handle_ptr> s(handle_vec.begin(), handle_vec.end());
-			handle_vec.assign(s.begin(), s.end());
+			RemoveDuplicatesKeepOrder(handle_vec);
 			get_recent_scrobbles* task = new get_recent_scrobbles(handle_vec);
 			if (!simple_thread_pool::instance().enqueue(task)) delete task;
 		}
@@ -412,7 +456,8 @@ namespace foo_enhanced_playcount {
 
 	class get_lastfm_scrobble : public simple_thread_task {
 	public:
-		get_lastfm_scrobble(const metadb_handle_ptr& handle, const bool refresh) : m_handle(handle), doRefresh(refresh) {}
+		get_lastfm_scrobble(const metadb_handle_ptr& handle, const bool refresh, const bool recent) : 
+			m_handle(handle), doRefresh(refresh), isRecent(recent) {}
 
 		void run() override
 		{
@@ -439,17 +484,20 @@ namespace foo_enhanced_playcount {
 				fb2k::inMainThread([=] {
 					theAPI()->dispatch_refresh(guid_foo_enhanced_playcount_index, hashes);
 				});
-			}
-			else {
+			} else {
 				thread_counter++;
 				std::lock_guard<std::mutex> guard(adding_hashes_mutex);
 				thread_hashes += hash;
+				if (isRecent && record.lastfmPlaytimes.size()) {
+					updateSavedScrobbleTimes(record.lastfmPlaytimes.back());
+				}
+				FB2K_console_formatter() << Config.latestScrobbleChecked << " - early: " << Config.earliestScrobbleChecked;
 			}
 		}
 
 	private:
 		metadb_handle_ptr m_handle;
-		bool doRefresh;
+		bool doRefresh, isRecent;
 	};
 
 	void refreshThreadHashes(unsigned int updateCount) {
@@ -463,8 +511,8 @@ namespace foo_enhanced_playcount {
 		}
 	}
 
-	void pull_scrobbles(metadb_handle_ptr metadb, bool refresh) {
-		get_lastfm_scrobble* task = new get_lastfm_scrobble(metadb, refresh);
+	void pull_scrobbles(metadb_handle_ptr metadb, bool refresh, bool recent) {
+		get_lastfm_scrobble* task = new get_lastfm_scrobble(metadb, refresh, recent);
 		if (!simple_thread_pool::instance().enqueue(task)) delete task;
 	}
 
@@ -574,6 +622,11 @@ namespace foo_enhanced_playcount {
 			if (config.EnableLastfmPlaycounts && !config.delayScrobbleRetrieval) {
 				pull_scrobbles(metadb);
 			}
+			tracksSinceScrobblePull++;
+			if (tracksSinceScrobblePull > 2 && !pullingRecentScrobbles) {
+				updateRecentScrobbles(false);
+				tracksSinceScrobblePull = 0;
+			}
 		}
 		void on_playback_starting(play_control::t_track_command p_command, bool p_paused) {}
 		void on_playback_stop(play_control::t_stop_reason p_reason) {}
@@ -598,7 +651,7 @@ namespace foo_enhanced_playcount {
 			return flag_on_playback_new_track | flag_on_playback_time;
 		}
 	private:
-		size_t m_elapsed = 0;
+		size_t m_elapsed = 0, tracksSinceScrobblePull = 0;
 	};
 
 	static service_factory_single_t<my_play_callback> g_play_callback_static_factory;

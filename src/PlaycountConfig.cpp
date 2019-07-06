@@ -10,7 +10,7 @@ static const GUID PlaycountConfigId =
 
 
 PlaycountConfig::PlaycountConfig()
-    : cfg_var(PlaycountConfigId)
+	: cfg_var(PlaycountConfigId)
 	, EnableLastfmPlaycounts(false)
 	, IncrementLastfmWithPlaycount(true)
 	, RemoveDuplicateLastfmScrobbles(true)
@@ -22,6 +22,9 @@ PlaycountConfig::PlaycountConfig()
 	, UnusedStr1("")
 	, UnusedStr2("")
 	, UnusedStr3("")
+	, CacheSize(0)
+	, latestScrobbleChecked(0)
+	, earliestScrobbleChecked(0)
 {
 }
 
@@ -48,6 +51,8 @@ void PlaycountConfig::get_data_raw(stream_writer* p_stream, abort_callback& p_ab
 	p_stream->write_string(UnusedStr2, p_abort);
 	p_stream->write_string(UnusedStr3, p_abort);
 
+	p_stream->write_lendian_t(latestScrobbleChecked, p_abort);
+	p_stream->write_lendian_t(earliestScrobbleChecked, p_abort);
 }
 
 // Reads data from config file and sets in cfg_var object
@@ -72,7 +77,14 @@ void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_ab
 	} else {
 		cfg.CacheSize = std::stoi(cfg.LruCacheSize.c_str());
 	}
-
+	if (version < 3) {
+		cfg.earliestScrobbleChecked = 0;
+		cfg.latestScrobbleChecked = 0;
+	} else {
+		p_stream->read_lendian_t(cfg.latestScrobbleChecked, p_abort);
+		p_stream->read_lendian_t(cfg.earliestScrobbleChecked, p_abort);
+		FB2K_console_formatter() << "Loaded: " << cfg.latestScrobbleChecked << " -- " << cfg.earliestScrobbleChecked;
+	}
 }
 
 void PlaycountConfig::set_data_raw(stream_reader* p_stream, t_size p_sizehint,
@@ -82,10 +94,11 @@ void PlaycountConfig::set_data_raw(stream_reader* p_stream, t_size p_sizehint,
     p_stream->read_lendian_t(version, p_abort);
 
     switch (version) {
-    case 1:
-	case 2:
-		SetData(*this, p_stream, p_abort, version);
-        break;
+		case 1:
+		case 2:
+		case 3:
+			SetData(*this, p_stream, p_abort, version);
+			break;
     }
 
 	/* // Not needing any title formatting stuff in config at the moment, but might later on

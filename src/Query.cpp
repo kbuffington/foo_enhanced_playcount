@@ -73,6 +73,12 @@ void Query::add_param(const char *param, unsigned int value) {
 	add_param(param, str, false);
 }
 
+void Query::add_param(const char* param, t_filetimestamp value) {
+	pfc::string8 str;
+	str << value;
+	add_param(param, str, false);
+}
+
 void Query::add_apikey() {
 	add_param("api_key", lastfmApiKey);
 }
