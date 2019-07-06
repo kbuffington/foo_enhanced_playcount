@@ -297,7 +297,7 @@ namespace foo_enhanced_playcount {
 
 				try {
 					query << "ARTIST IS " << s.artist << " AND TITLE IS " << s.title;
-					if (Config.CompareAlbumFields) {
+					if (Config.CompareAlbumFields && s.album.length() > 0) {
 						query << " AND ALBUM IS " << s.album;
 					}
 					filter = search_filter_manager_v2::get()->create_ex(query, new service_impl_t<completion_notify_dummy>(), search_filter_manager_v2::KFlagSuppressNotify);

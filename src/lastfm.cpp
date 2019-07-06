@@ -305,11 +305,13 @@ bool Lastfm::parseRecentTracksJson(const pfc::string8 buffer, const int limit, s
 								time = atoi(date);
 							}
 						}
-						pfc::string8 lfmAlbum = static_cast<pfc::string8>(al["#text"].GetString());	// TODO: skip this?
+						pfc::string8 lfmAlbum = static_cast<pfc::string8>(al["#text"].GetString());
 						pfc::string8 lfmArtist = static_cast<pfc::string8>(ar["#text"].GetString());
 						pfc::string8 lfmTitle = static_cast<pfc::string8>(name.GetString());
 					
-						scrobble_vec.push_back(scrobbleData(lfmTitle, lfmArtist, lfmAlbum, time));
+						if (lfmArtist.length() > 0 && lfmTitle.length() > 0) {
+							scrobble_vec.push_back(scrobbleData(lfmTitle, lfmArtist, lfmAlbum, time));
+						}
 					}
 				}
 			}
