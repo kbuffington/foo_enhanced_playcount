@@ -303,6 +303,12 @@ bool Lastfm::parseRecentTracksJson(const pfc::string8 buffer, const int limit, s
 						pfc::string8 lfmAlbum = static_cast<pfc::string8>(al["#text"].GetString());
 						pfc::string8 lfmArtist = static_cast<pfc::string8>(ar["#text"].GetString());
 						pfc::string8 lfmTitle = static_cast<pfc::string8>(name.GetString());
+						if (lfmTitle.replace_string("\"", "") ||
+							lfmArtist.replace_string("\"", "") ||
+							lfmAlbum.replace_string("\"", ""))
+						{
+							continue;
+						}
 					
 						if (lfmArtist.length() > 0 && lfmTitle.length() > 0) {
 							scrobble_vec.push_back(scrobbleData(lfmTitle, lfmArtist, lfmAlbum, time));

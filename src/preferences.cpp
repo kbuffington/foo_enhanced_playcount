@@ -37,6 +37,7 @@ public:
 		COMMAND_HANDLER_EX(IDC_REMOVE_DUPLICATE_SCROBBLES, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_DELAY_PULLING_SCROBBLES, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_EPC_LASTFM_NAME, EN_CHANGE, OnEditChange)
+		COMMAND_HANDLER_EX(IDC_AUTO_PULL_SCROBBLES, BN_CLICKED, OnEditChange)
 	END_MSG_MAP()
 
 private:
@@ -49,7 +50,7 @@ private:
 	preferences_page_callback::ptr const callback_;
 	PlaycountConfig& config_;
 	BindingCollection bindings_;
-	CToolTipCtrl tooltips[5];
+	CToolTipCtrl tooltips[6];
 	Query *prefQ = new Query("fake");	// used for setting underlying cache
 };
 
@@ -61,6 +62,7 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 	bindings_.Bind(config_.RemoveDuplicateLastfmScrobbles, m_hWnd, IDC_REMOVE_DUPLICATE_SCROBBLES);
 	bindings_.Bind(config_.delayScrobbleRetrieval, m_hWnd, IDC_DELAY_PULLING_SCROBBLES);
 	bindings_.Bind(config_.LastfmUsername, m_hWnd, IDC_EPC_LASTFM_NAME);
+	bindings_.Bind(config_.autoPullScrobbles, m_hWnd, IDC_AUTO_PULL_SCROBBLES);
 	bindings_.FlowToControl();
 
 	CreateTooltip(tooltips[0], m_hWnd, IDC_ENABLE_LASTFM_PLAYCOUNTS,
@@ -123,6 +125,14 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 		L"aren't actually listening to, or that no longer exist in your library, it is recommended "
 		L"to leave this option enabled. Scrobbles will be pulled after 2 seconds of playback."
 	);
+	CreateTooltip(tooltips[5], m_hWnd, IDC_AUTO_PULL_SCROBBLES,
+		L"Automatically pull recent scrobbles",
+		L"\nAt startup the component will retrieve a list of recently scrobbled songs (up to the "
+		L"last 1000), and then search your fb2k library to find songs that match and attempt "
+		L"to sync their last.fm playcounts with last.fm."
+		L"\nThis option will also pull older scrobbles so that over time your entire library "
+		L"will be brought up to date with last.fm."
+	);
 
 	return FALSE;
 }
@@ -163,6 +173,7 @@ void PlaycountPreferencesDialog::reset()
 	CheckDlgButton(IDC_INCREMENT_WITH_PLAYCOUNT, BST_CHECKED);
 	CheckDlgButton(IDC_REMOVE_DUPLICATE_SCROBBLES, BST_CHECKED);
 	CheckDlgButton(IDC_DELAY_PULLING_SCROBBLES, BST_CHECKED);
+	CheckDlgButton(IDC_AUTO_PULL_SCROBBLES, BST_CHECKED);
 	uSetDlgItemText(m_hWnd, IDC_EPC_LASTFM_NAME, DefaultLastfmUsername);
 
 	OnChanged();

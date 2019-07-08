@@ -345,14 +345,16 @@ namespace foo_enhanced_playcount {
 	};
 
 	void updateRecentScrobblesThreaded(bool newScrobbles) {
-		metadb_handle_list allLibraryItems;
-		library_manager::get()->get_all_items(allLibraryItems);
-		if (!newScrobbles) {
-			FB2K_console_formatter() << "Starting to pull legacy scrobbles (before " << Config.earliestScrobbleChecked << ")";
-		}
+		if (config.autoPullScrobbles) {
+			metadb_handle_list allLibraryItems;
+			library_manager::get()->get_all_items(allLibraryItems);
+			if (!newScrobbles) {
+				FB2K_console_formatter() << "Starting to pull legacy scrobbles (before " << Config.earliestScrobbleChecked << ")";
+			}
 
-		updateRecentScrobbles* task = new updateRecentScrobbles(newScrobbles, allLibraryItems);
-		if (!simple_thread_pool::instance().enqueue(task)) delete task;
+			updateRecentScrobbles* task = new updateRecentScrobbles(newScrobbles, allLibraryItems);
+			if (!simple_thread_pool::instance().enqueue(task)) delete task;
+		}
 	}
 
 	std::vector<t_filetimestamp> getLastFmPlaytimes(metadb_handle_ptr p_item, metadb_index_hash hash, const t_filetimestamp lastPlay) {
@@ -650,7 +652,7 @@ namespace foo_enhanced_playcount {
 				pull_scrobbles(metadb);
 			}
 			tracksSinceScrobblePull++;
-			if (tracksSinceScrobblePull > 12 && !pullingRecentScrobbles) {
+			if (tracksSinceScrobblePull > 12 && config.autoPullScrobbles && !pullingRecentScrobbles) {
 				updateRecentScrobblesThreaded(false);
 				tracksSinceScrobblePull = 0;
 			}

@@ -7,14 +7,11 @@
 #define IDC_ENABLE_LASTFM_PLAYCOUNTS    1002
 #define IDC_SLIDER1                     1012
 #define IDC_INCREMENT_WITH_PLAYCOUNT    1014
-//#define IDC_LASTFM_CACHE_SIZE           1016
-//#define IDC_CURRENT_CACHE_SIZE_LABEL    1017
-//#define IDC_CACHE_SIZE_LABEL            1018
-//#define IDC_CACHE_EXPLANATION           1019
-//#define IDC_CURRENT_CACHE_SIZE          1020
 #define IDC_REMOVE_DUPLICATE_SCROBBLES  1021
 #define IDC_COMPARE_ALBUM_FIELDS        1022
 #define IDC_DELAY_PULLING_SCROBBLES     1023
+#define IDC_COMPARE_ALBUM_FIELDS2       1024
+#define IDC_AUTO_PULL_SCROBBLES         1024
 
 // Next default values for new objects
 // 

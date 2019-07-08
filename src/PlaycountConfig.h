@@ -13,7 +13,11 @@ namespace foo_enhanced_playcount {
 		bool EnableLastfmPlaycounts;
 		bool IncrementLastfmWithPlaycount;
 		bool RemoveDuplicateLastfmScrobbles;
+		bool autoPullScrobbles;
 		bool UnusedBool1;
+		bool UnusedBool2;
+		bool UnusedBool3;
+		bool UnusedBool4;
 		bool CompareAlbumFields;
 		bool delayScrobbleRetrieval;
 

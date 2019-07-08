@@ -14,7 +14,11 @@ PlaycountConfig::PlaycountConfig()
 	, EnableLastfmPlaycounts(false)
 	, IncrementLastfmWithPlaycount(true)
 	, RemoveDuplicateLastfmScrobbles(true)
+	, autoPullScrobbles(true)
 	, UnusedBool1(false)
+	, UnusedBool2(false)
+	, UnusedBool3(true)
+	, UnusedBool4(true)
 	, CompareAlbumFields(true)
 	, delayScrobbleRetrieval(true)
 	, LastfmUsername(DefaultLastfmUsername)
@@ -53,6 +57,10 @@ void PlaycountConfig::get_data_raw(stream_writer* p_stream, abort_callback& p_ab
 
 	p_stream->write_lendian_t(latestScrobbleChecked, p_abort);
 	p_stream->write_lendian_t(earliestScrobbleChecked, p_abort);
+	p_stream->write_lendian_t(autoPullScrobbles, p_abort);
+	p_stream->write_lendian_t(UnusedBool2, p_abort);
+	p_stream->write_lendian_t(UnusedBool3, p_abort);
+	p_stream->write_lendian_t(UnusedBool4, p_abort);
 }
 
 // Reads data from config file and sets in cfg_var object
@@ -80,10 +88,17 @@ void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_ab
 	if (version < 3) {
 		cfg.earliestScrobbleChecked = 0;
 		cfg.latestScrobbleChecked = 0;
+		cfg.autoPullScrobbles = true;
+		cfg.UnusedBool2 = false;
+		cfg.UnusedBool3 = true;
+		cfg.UnusedBool4 = true;
 	} else {
 		p_stream->read_lendian_t(cfg.latestScrobbleChecked, p_abort);
 		p_stream->read_lendian_t(cfg.earliestScrobbleChecked, p_abort);
-		FB2K_console_formatter() << "Loaded: " << cfg.latestScrobbleChecked << " -- " << cfg.earliestScrobbleChecked;
+		p_stream->read_lendian_t(cfg.autoPullScrobbles, p_abort);
+		p_stream->read_lendian_t(cfg.UnusedBool2, p_abort);
+		p_stream->read_lendian_t(cfg.UnusedBool3, p_abort);
+		p_stream->read_lendian_t(cfg.UnusedBool4, p_abort);
 	}
 }
 
