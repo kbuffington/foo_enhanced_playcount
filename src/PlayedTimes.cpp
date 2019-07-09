@@ -30,6 +30,13 @@ namespace foo_enhanced_playcount {
 	// Retain pinned data for four weeks if there are no matching items in library
 	static const t_filetimestamp retentionPeriod = system_time_periods::week * 4;
 
+	// mutexes and atomic bools
+	std::atomic_uint32_t thread_counter = 0;
+	std::atomic<bool> pullingRecentScrobbles = false, quitting = false;
+	std::mutex retrieving_scrobbles;
+	std::mutex adding_hashes_mutex;
+	pfc::list_t<metadb_index_hash> thread_hashes;
+
 	void mb_to_lower(const char * src, pfc::string_base & dest) {
 		for (;;) {
 			unsigned c1;
@@ -112,9 +119,10 @@ namespace foo_enhanced_playcount {
 	class initquit_impl : public initquit {
 	public:
 		void on_quit() {
+			quitting = true;
+			simple_thread_pool::instance().exit();
 			// Cleanly kill g_cachedAPI before reaching static object destructors or else
 			g_cachedAPI.release();
-			simple_thread_pool::instance().exit();
 		}
 	};
 	static service_factory_single_t<init_stage_callback_impl> g_init_stage_callback_impl;
@@ -192,7 +200,7 @@ namespace foo_enhanced_playcount {
 	static void setRecord(metadb_index_hash hash, record_t record, const GUID index_guid) {
 		unsigned int buf[10004];
 		size_t size = 0;
-		record.version = kCurrVersion;
+		record.version = kCurrRecordVersion;
 		memcpy(buf, &record, 4 * sizeof(int));
 		size += 4;
 		if (record.foobarPlaytimes.size()) {
@@ -209,12 +217,6 @@ namespace foo_enhanced_playcount {
 		theAPI()->set_user_data(index_guid, hash, buf, size * sizeof(int));
 	}
 
-	std::atomic_uint32_t thread_counter = 0;
-	std::atomic<bool> pullingRecentScrobbles = false;
-	std::mutex retrieving_scrobbles;
-	std::mutex adding_hashes_mutex;
-	pfc::list_t<metadb_index_hash> thread_hashes;
-
 	class get_recent_scrobbles : public simple_thread_task {
 	public:
 		get_recent_scrobbles(std::vector<metadb_handle_ptr> items) : m_handles(items) {}
@@ -226,12 +228,15 @@ namespace foo_enhanced_playcount {
 				thread_counter = 0;
 
 				for (auto const& handle : m_handles) {
+					if (quitting) {
+						break;
+					}
 					Sleep(300);	// background pulling so go slower than regular pulls & rate limit
 					pull_scrobbles(handle, false, true);
 
 					refreshThreadHashes(25);
 				}
-				while (thread_counter < m_handles.size()) {
+				while (thread_counter < m_handles.size() && !quitting) {
 					// Is there a better way to wait for all the threads to complete?
 					Sleep(10);
 				}
@@ -302,11 +307,19 @@ namespace foo_enhanced_playcount {
 					search_filter_v2::ptr filter;
 					string8 query;
 					metadb_handle_list library = allLibraryItems;
+					if (quitting) {
+						break;
+					}
 
 					try {
-						query << "ARTIST IS \"" << s.artist << "\" AND TITLE IS \"" << s.title << "\"";
+						if (!s.artistHasQuotes) {
+							query << "ARTIST IS \"" << s.artist << "\"";	// handles multiple values
+						} else {
+							query << "\"$stricmp(%artist%," << s.artist << ")\" IS 1";	// handles escaped double-quotes
+						}
+						query << " AND \"$stricmp(%title%," << s.title << ")\" IS 1";
 						if (Config.CompareAlbumFields && s.album.length() > 0) {
-							query << " AND ALBUM IS \"" << s.album << "\"";
+							query << " AND \"$stricmp(%album%," << s.album << ")\" IS 1";
 						}
 						filter = search_filter_manager_v2::get()->create_ex(query, new service_impl_t<completion_notify_dummy>(), search_filter_manager_v2::KFlagSuppressNotify);
 					}
@@ -555,6 +568,9 @@ namespace foo_enhanced_playcount {
 				thread_counter = 0;
 
 				for (size_t t = 0; t < m_items.size(); t++) {
+					if (quitting) {
+						break;
+					}
 					p_status.set_progress(t, m_items.size());
 					p_status.set_item_path(m_items[t].mdb_handle->get_path());
 
@@ -565,7 +581,7 @@ namespace foo_enhanced_playcount {
 
 					refreshThreadHashes(25);
 				}
-				while (thread_counter < m_items.size()) {
+				while (thread_counter < m_items.size() && !quitting) {
 					// Is there a better way to wait for all the threads to complete?
 					Sleep(10);
 				}
@@ -652,9 +668,16 @@ namespace foo_enhanced_playcount {
 				pull_scrobbles(metadb);
 			}
 			tracksSinceScrobblePull++;
-			if (tracksSinceScrobblePull > 12 && config.autoPullScrobbles && !pullingRecentScrobbles) {
-				updateRecentScrobblesThreaded(false);
-				tracksSinceScrobblePull = 0;
+			tracksSinceNewScrobblePull++;
+			if (config.EnableLastfmPlaycounts && config.autoPullScrobbles && !pullingRecentScrobbles) {
+				if (tracksSinceScrobblePull >= 12) {
+					updateRecentScrobblesThreaded(false);
+					tracksSinceScrobblePull = 0;
+				}
+				if (tracksSinceNewScrobblePull >= 5) {
+					updateRecentScrobblesThreaded(true);
+					tracksSinceNewScrobblePull = 0;
+				}
 			}
 		}
 		void on_playback_starting(play_control::t_track_command p_command, bool p_paused) {}
@@ -680,7 +703,7 @@ namespace foo_enhanced_playcount {
 			return flag_on_playback_new_track | flag_on_playback_time;
 		}
 	private:
-		size_t m_elapsed = 0, tracksSinceScrobblePull = 0;
+		size_t m_elapsed = 0, tracksSinceScrobblePull = 0, tracksSinceNewScrobblePull = 0;
 	};
 
 	static service_factory_single_t<my_play_callback> g_play_callback_static_factory;

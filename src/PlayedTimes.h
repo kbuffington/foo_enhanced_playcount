@@ -4,10 +4,10 @@
 
 namespace foo_enhanced_playcount {
 	void convertHashes(void);
-#define kCurrVersion   1
 
+#define kCurrRecordVersion   1
 	struct record_t {
-		unsigned int version = kCurrVersion;
+		unsigned int version = kCurrRecordVersion;
 		unsigned int numFoobarPlays = 0;
 		unsigned int numLastfmPlays = 0;
 		int unused = 0;			// available for later
@@ -19,9 +19,10 @@ namespace foo_enhanced_playcount {
 		pfc::string8 title;
 		pfc::string8 artist;
 		pfc::string8 album;
+		bool artistHasQuotes;
 		t_filetimestamp scrobble_time;
-		scrobbleData(pfc::string8 _title, pfc::string8 _artist, pfc::string8 _album, t_filetimestamp _time) : 
-			title(_title), artist(_artist), album(_album), scrobble_time(_time) {};
+		scrobbleData(pfc::string8 _title, pfc::string8 _artist, pfc::string8 _album, t_filetimestamp _time, bool _hasQuotes) : 
+			title(_title), artist(_artist), album(_album), scrobble_time(_time), artistHasQuotes(_hasQuotes) {};
 	} scrobbleData;
 
 	record_t getRecord(metadb_index_hash hash, const GUID index_guid = guid_foo_enhanced_playcount_index);
