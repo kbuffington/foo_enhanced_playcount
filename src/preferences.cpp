@@ -38,11 +38,14 @@ public:
 		COMMAND_HANDLER_EX(IDC_DELAY_PULLING_SCROBBLES, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_EPC_LASTFM_NAME, EN_CHANGE, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_AUTO_PULL_SCROBBLES, BN_CLICKED, OnEditChange)
+		COMMAND_HANDLER_EX(IDC_RESET_BUTTON, BN_CLICKED, OnClickedResetButton)
 	END_MSG_MAP()
+
 
 private:
 	BOOL OnInitDialog(CWindow, LPARAM);
 	void OnEditChange(UINT uNotifyCode, int nID, CWindow wndCtl);
+	void OnClickedResetButton(UINT uNotifyCode, int nID, CWindow wndCtl);
 	bool HasChanged() const;
 	void OnChanged();
 	void CreateTooltip(CToolTipCtrl, CWindow, int, LPCTSTR, LPCTSTR);
@@ -63,6 +66,9 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 	bindings_.Bind(config_.delayScrobbleRetrieval, m_hWnd, IDC_DELAY_PULLING_SCROBBLES);
 	bindings_.Bind(config_.LastfmUsername, m_hWnd, IDC_EPC_LASTFM_NAME);
 	bindings_.Bind(config_.autoPullScrobbles, m_hWnd, IDC_AUTO_PULL_SCROBBLES);
+	pfc::string8 str = "Next historical scrobble pull from: ";
+	str << format_filetimestamp::format_filetimestamp(pfc::fileTimeUtoW(config_.earliestScrobbleChecked));
+	GetDlgItem(IDC_LAST_PULL_DATE).SetWindowTextW(CA2W(str));
 	bindings_.FlowToControl();
 
 	CreateTooltip(tooltips[0], m_hWnd, IDC_ENABLE_LASTFM_PLAYCOUNTS,
@@ -175,6 +181,16 @@ void PlaycountPreferencesDialog::reset()
 	CheckDlgButton(IDC_DELAY_PULLING_SCROBBLES, BST_CHECKED);
 	CheckDlgButton(IDC_AUTO_PULL_SCROBBLES, BST_CHECKED);
 	uSetDlgItemText(m_hWnd, IDC_EPC_LASTFM_NAME, DefaultLastfmUsername);
+
+	OnChanged();
+}
+
+void PlaycountPreferencesDialog::OnClickedResetButton(UINT uNotifyCode, int nID, CWindow wndCtl)
+{
+	config_.earliestScrobbleChecked = 0;
+	pfc::string8 str = "Next historical scrobble pull from: ";
+	str << format_filetimestamp::format_filetimestamp(pfc::fileTimeUtoW(config_.latestScrobbleChecked));
+	GetDlgItem(IDC_LAST_PULL_DATE).SetWindowTextW(CA2W(str));
 
 	OnChanged();
 }

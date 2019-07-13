@@ -10,8 +10,9 @@
 #define IDC_REMOVE_DUPLICATE_SCROBBLES  1021
 #define IDC_COMPARE_ALBUM_FIELDS        1022
 #define IDC_DELAY_PULLING_SCROBBLES     1023
-#define IDC_COMPARE_ALBUM_FIELDS2       1024
 #define IDC_AUTO_PULL_SCROBBLES         1024
+#define IDC_LAST_PULL_DATE              1025
+#define IDC_RESET_BUTTON                1026
 
 // Next default values for new objects
 // 
@@ -19,7 +20,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        104
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1023
+#define _APS_NEXT_CONTROL_VALUE         1027
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

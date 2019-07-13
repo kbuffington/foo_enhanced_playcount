@@ -294,7 +294,8 @@ namespace foo_enhanced_playcount {
 			if (Config.EnableLastfmPlaycounts) {
 				pullingRecentScrobbles = true;
 				Lastfm* lfm = new Lastfm();
-				std::vector<scrobbleData> scrobble_vec = lfm->queryRecentTracks(newScrobbles, newScrobbles ? Config.latestScrobbleChecked : Config.earliestScrobbleChecked);
+				std::vector<scrobbleData> scrobble_vec = 
+					lfm->queryRecentTracks(newScrobbles, newScrobbles ? Config.latestScrobbleChecked : Config.earliestScrobbleChecked);
 				std::vector<metadb_handle_ptr> handle_vec;
 
 #ifdef DEBUG
@@ -334,7 +335,8 @@ namespace foo_enhanced_playcount {
 							clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(library[i], hash);
 							record_t record = getRecord(hash);
 							if (!record.lastfmPlaytimes.size() ||
-								(fileTimeWtoU(record.lastfmPlaytimes.back()) - 60) < s.scrobble_time) {
+								((fileTimeWtoU(record.lastfmPlaytimes.back()) - 60) < s.scrobble_time) &&
+								(s.scrobble_time - fileTimeWtoU(record.lastfmPlaytimes.back()) > 60)) {	// filtering for non-adjusted recorded scrobbles
 								handle_vec.push_back(library[i]);
 							}
 							else if (record.lastfmPlaytimes.size()) {
