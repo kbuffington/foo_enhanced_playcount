@@ -256,12 +256,14 @@ namespace foo_enhanced_playcount {
 		const std::vector<metadb_handle_ptr> m_handles;
 	};
 
-	void updateSavedScrobbleTimes(t_filetimestamp scrobble_time) {
+	void updateSavedScrobbleTimes(t_filetimestamp scrobble_time, bool updateEarliest) {
 		t_filetimestamp timestamp = fileTimeWtoU(scrobble_time) - 60;
 		if (timestamp > Config.latestScrobbleChecked) {
 			Config.latestScrobbleChecked = timestamp;
 		}
-		if (timestamp < Config.earliestScrobbleChecked || !Config.earliestScrobbleChecked) {
+		// it seems possible to update the earliest date to a date much earlier than the range being scrobbled, 
+		// so restrict updating this value to just tracks we don't need to pull from last.fm
+		if (updateEarliest && timestamp < Config.earliestScrobbleChecked || !Config.earliestScrobbleChecked) {
 			Config.earliestScrobbleChecked = timestamp;
 		}
 	}
@@ -340,7 +342,8 @@ namespace foo_enhanced_playcount {
 								handle_vec.push_back(library[i]);
 							}
 							else if (record.lastfmPlaytimes.size()) {
-								updateSavedScrobbleTimes(record.lastfmPlaytimes.back());
+								// we know about all scrobbles for this song
+								updateSavedScrobbleTimes(fileTimeUtoW(s.scrobble_time), true);
 							}
 						}
 					}
@@ -534,7 +537,7 @@ namespace foo_enhanced_playcount {
 				std::lock_guard<std::mutex> guard(adding_hashes_mutex);
 				thread_hashes += hash;
 				if (isRecent && record.lastfmPlaytimes.size()) {
-					updateSavedScrobbleTimes(record.lastfmPlaytimes.back());
+					updateSavedScrobbleTimes(record.lastfmPlaytimes.back(), false);
 				}
 			}
 		}

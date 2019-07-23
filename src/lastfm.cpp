@@ -19,6 +19,7 @@ using namespace foo_enhanced_playcount;
 using namespace pfc;
 
 PlaycountConfig const& config{ Config };
+int unsortedRemoveDuplicates(std::vector<scrobbleData>& scrobbles);
 
 Lastfm::Lastfm(metadb_index_hash hashVal, string8 trackartist, string8 trackalbum, string8 tracktitle) {
 	user = config.LastfmUsername;
@@ -65,8 +66,7 @@ std::vector<t_filetimestamp> Lastfm::queryByTrack(t_filetimestamp lastPlay) {
 			// convert to unix timestamp and skip 29 seconds to avoid duplicate scrobbles
 			lastPlayed = fileTimeWtoU(lastPlay) + (config.RemoveDuplicateLastfmScrobbles ? 29 : 0);
 		}
-		//auto buf = query->perform(hash);
-		auto buf = trackQuery->perform(0);
+		auto buf = trackQuery->perform(hash);
 
 		done = parseTrackJson(buf, playTimes, lastPlayed);
 	}
@@ -99,6 +99,12 @@ std::vector<scrobbleData> Lastfm::queryRecentTracks(bool newScrobbles, t_filetim
 
 		done = parseRecentTracksJson(buf, limit, m_vec);
 	}
+	if (m_vec.size() == 1 && !newScrobbles) {
+		// we've reached the end, start over.
+		FB2K_console_formatter() << COMPONENT_NAME": >>> Reached earliest recorded scrobble. Next historical pull will start from most recent.";
+		Config.earliestScrobbleChecked = Config.latestScrobbleChecked;
+	}
+	unsortedRemoveDuplicates(m_vec);
 	if (newScrobbles) {
 		std::reverse(m_vec.begin(), m_vec.end());	// reverse newest pulls so we check from oldest to newest
 	}
@@ -249,10 +255,9 @@ int unsortedRemoveDuplicates(std::vector<scrobbleData>& scrobbles)
 	auto itr = begin(scrobbles);
 	while (itr != end(scrobbles))
 	{
-		if (seenScrobbles.find(*itr) != end(seenScrobbles)) //seen? erase it
+		if (seenScrobbles.find(*itr) != end(seenScrobbles)) { //seen? erase it
 			itr = scrobbles.erase(itr); //itr now points to next element
-		else
-		{
+		} else {
 			seenScrobbles.insert(*itr);
 			itr++;
 		}
@@ -305,8 +310,11 @@ bool Lastfm::parseRecentTracksJson(const pfc::string8 buffer, const int limit, s
 						pfc::string8 lfmArtist = static_cast<pfc::string8>(ar["#text"].GetString());
 						pfc::string8 lfmTitle = static_cast<pfc::string8>(name.GetString());
 						lfmTitle.replace_string("\"", "$char(34)");
+						lfmTitle.replace_string("'", "$char(39)");
 						lfmAlbum.replace_string("\"", "$char(34)");
+						lfmAlbum.replace_string("'", "$char(39)");
 						if (lfmArtist.replace_string("\\\"", "$char(34)") || lfmArtist.replace_string("\"", "$char(34)")) {
+							lfmArtist.replace_string("'", "$char(39)");
 							hasQuotes = true;
 						}
 					
@@ -318,7 +326,6 @@ bool Lastfm::parseRecentTracksJson(const pfc::string8 buffer, const int limit, s
 			}
 		}
 	}
-	unsortedRemoveDuplicates(scrobble_vec);
 
 	return done || (count < limit);
 }
