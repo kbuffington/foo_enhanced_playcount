@@ -55,9 +55,9 @@ std::vector<t_filetimestamp> Lastfm::queryByTrack(t_filetimestamp lastPlay) {
 	while (configured && !done && page <= maxPages) {
 		Query *trackQuery = new Query("user.getTrackScrobbles");
 		trackQuery->add_apikey();
-		trackQuery->add_param("user", user, false);
-		trackQuery->add_param("artist", artist, false);
-		trackQuery->add_param("track", title, false);
+		trackQuery->add_param("user", user);
+		trackQuery->add_param("artist", artist);
+		trackQuery->add_param("track", title);
 		trackQuery->add_param("limit", 200);
 		trackQuery->add_param("format", "json");
 		trackQuery->add_param("page", page++);
@@ -80,12 +80,12 @@ std::vector<scrobbleData> Lastfm::queryRecentTracks(bool newScrobbles, t_filetim
 	bool done = false;
 	int page = 1;
 	int maxPages = 5;
-	int limit = 100;
+	int limit = 200;
 
 	while (configured && !done && page <= maxPages) {
 		Query* recentTracksQuery = new Query("user.getRecentTracks");
 		recentTracksQuery->add_apikey();
-		recentTracksQuery->add_param("user", user, false);
+		recentTracksQuery->add_param("user", user);
 		recentTracksQuery->add_param("limit", limit);
 		recentTracksQuery->add_param("format", "json");
 		if (newScrobbles) {

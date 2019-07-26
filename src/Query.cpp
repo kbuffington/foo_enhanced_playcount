@@ -57,26 +57,26 @@ char Query::to_hex(char c) {
 	return c < 0xa ? '0' + c : 'a' - 0xa + c;
 }
 
-void Query::add_param(const char *param, pfc::string8 value, bool encode) {
-	url << "&" << param << "=" << (encode ? url_encode(value) : url_encode_new(value));
+void Query::add_param(const char *param, pfc::string8 value) {
+	url << "&" << param << "=" << url_encode(value);
 }
 
 void Query::add_param(const char *param, int value) {
 	pfc::string8 str;
 	str << value;
-	add_param(param, str, false);
+	add_param(param, str);
 }
 
 void Query::add_param(const char *param, unsigned int value) {
 	pfc::string8 str;
 	str << value;
-	add_param(param, str, false);
+	add_param(param, str);
 }
 
 void Query::add_param(const char* param, t_filetimestamp value) {
 	pfc::string8 str;
 	str << value;
-	add_param(param, str, false);
+	add_param(param, str);
 }
 
 void Query::add_apikey() {
@@ -84,29 +84,10 @@ void Query::add_apikey() {
 }
 
 pfc::string8 Query::url_encode(pfc::string8 in) {
-	pfc::string8 out;
-	out.prealloc(in.length() * 3 + 1);
-
-	for (register const char *tmp = in; *tmp != '\0'; tmp++) {
-		auto c = static_cast<unsigned char>(*tmp);
-		if (isalnum(c) || c == '_') {
-			out.add_char(c);
-		} else if (isspace(c)) {
-			out.add_char('+');
-		} else {
-			out.add_string("%25");
-			out.add_char(to_hex(c >> 4));
-			out.add_char(to_hex(c % 16));
-		}
-	}
-
-	return out;
-}
-
-pfc::string8 Query::url_encode_new(pfc::string8 in) {
 	in.replace_string("%", "%25", 0);	// escape % first, otherwise we'll be double escaping # or &
 	in.replace_string("#", "%23", 0);
 	in.replace_string("&", "%26", 0);
+	in.replace_string("+", "%2B", 0);
 
 	return in;
 }
