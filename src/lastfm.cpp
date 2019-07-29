@@ -211,8 +211,8 @@ bool Lastfm::parseTrackJson(const pfc::string8 buffer, std::vector<t_filetimesta
 						pfc::string8 lfmTitle = static_cast<pfc::string8>(name.GetString());
 
 						if (al.IsObject() &&
-							(!config.CompareAlbumFields || fieldsEq(album, lfmAlbum)) &&
-							fieldsEq(title, lfmTitle)) {
+							//fieldsEq(title, lfmTitle) &&
+							(!config.CompareAlbumFields || fieldsEq(album, lfmAlbum))) {
 
 							if (!config.RemoveDuplicateLastfmScrobbles || time < lastRecordedTime - 29) {
 								/* last.fm occasionally will double count songs, giving each one a timestamp
