@@ -10,7 +10,7 @@ extern PlaycountConfig const& config;
 
 namespace enhanced_playcount_fields {
 
-	std::string getPlayTimesStr(std::vector<t_filetimestamp> playTimes, bool convertTimeStamp, bool jsTimeStamp);
+	std::string getPlayTimesStr(std::vector<t_filetimestamp> playTimes, bool convertTimeStamp, bool jsTimeStamp, bool noArrayChars = false);
 
 #define kNoDate 199999999990000000
 
@@ -311,16 +311,22 @@ namespace enhanced_playcount_fields {
 		return os.str();
 	}
 
-	static std::string getPlayTimesStr(std::vector<t_filetimestamp> playTimes, bool convertTimeStamp, bool jsTimeStamp) {
+	static std::string getPlayTimesStr(std::vector<t_filetimestamp> playTimes, bool convertTimeStamp, bool jsTimeStamp, bool noArrayChars) {
 		std::string str;
 		size_t index = 0;
 
-		str += "[";
+		if (!noArrayChars) {
+			str += "[";
+		}
 		for (std::vector<t_filetimestamp>::iterator it = playTimes.begin(); it != playTimes.end(); ++it, ++index) {
 			if (convertTimeStamp) {
-				str += "\"";
+				if (!noArrayChars) {
+					str += "\"";
+				}
 				str.append(format_filetimestamp::format_filetimestamp(*it));
-				str += "\"";
+				if (!noArrayChars) {
+					str += "\"";
+				}
 			}
 			else {
 				str += t_uint64_to_string(*it, jsTimeStamp);
@@ -329,7 +335,105 @@ namespace enhanced_playcount_fields {
 				str.append(", ");
 			}
 		}
-		str += "]";
+		if (!noArrayChars) {
+			str += "]";
+		}
 		return str;
 	}
+
+	static const char strPropertiesGroup[] = "Enhanced Playcount (Last.fm scrobble data)";
+
+	// This class provides our information for the properties dialog
+	class track_property_provider_impl : public track_property_provider_v2 {
+	public:
+		void workThisIndex(GUID const& whichID, double priorityBase, metadb_handle_list_cref p_tracks, track_property_callback& p_out) {
+			auto client = clientByGUID(whichID);
+			pfc::avltree_t<metadb_index_hash> hashes;
+			const size_t trackCount = p_tracks.get_count();
+			for (size_t trackWalk = 0; trackWalk < trackCount; ++trackWalk) {
+				metadb_index_hash hash;
+				if (client->hashHandle(p_tracks[trackWalk], hash)) {
+					hashes += hash;
+				}
+			}
+
+			uint64_t lastfm_playcount = 0;
+			pfc::string8 first_scrobble_str = "", last_scrobble_str, scrobble_times;
+			{
+				size_t count = 0;
+				bool bFirst = true;
+				bool bVarComments = false;
+				record_t first_record;
+				t_filetimestamp first_scrobble = 0, last_scrobble = kNoDate;
+				for (auto i = hashes.first(); i.is_valid(); ++i) {
+					record_t rec = getRecord(*i);
+					if (rec.numLastfmPlays) {
+						lastfm_playcount += rec.numLastfmPlays;
+
+						count++;
+
+						if (bFirst) {
+							first_record = rec;
+							first_scrobble = rec.lastfmPlaytimes.front();
+							last_scrobble = rec.lastfmPlaytimes.back();
+						}
+						else {
+							if (rec.lastfmPlaytimes.front() < first_scrobble) {
+								first_scrobble = rec.lastfmPlaytimes.front();
+							}
+							if (rec.lastfmPlaytimes.front() > last_scrobble) {
+								last_scrobble = rec.lastfmPlaytimes.back();
+							}
+						}
+
+						bFirst = false;
+					}
+				}
+
+
+				if (count == 1) {
+					if (first_record.numLastfmPlays > 0) {
+						scrobble_times = getPlayTimesStr(first_record.lastfmPlaytimes, true, false, true).c_str();
+#define MAX_PROPERTY_LENGTH 500
+						if (scrobble_times.get_length() > MAX_PROPERTY_LENGTH) {
+							scrobble_times.truncate(MAX_PROPERTY_LENGTH);
+							scrobble_times += "...";
+						}
+					}
+					else {
+						scrobble_times = "N/A";
+					}
+				}
+				if (first_scrobble != 0) {
+					first_scrobble_str = format_filetimestamp::format_filetimestamp(first_scrobble);
+					last_scrobble_str = format_filetimestamp::format_filetimestamp(last_scrobble);
+				}
+			}
+
+			p_out.set_property(strPropertiesGroup, priorityBase + 0, PFC_string_formatter() << "Scrobbled", PFC_string_formatter() << lastfm_playcount << " times");
+			p_out.set_property(strPropertiesGroup, priorityBase + 1, PFC_string_formatter() << "First scrobble", first_scrobble_str);
+			p_out.set_property(strPropertiesGroup, priorityBase + 2, PFC_string_formatter() << "Last scrobble", last_scrobble_str);
+			if (scrobble_times.length() > 0) {
+				p_out.set_property(strPropertiesGroup, priorityBase + 3, PFC_string_formatter() << "Last.fm scrobbles", scrobble_times);
+			}
+		}
+		void enumerate_properties(metadb_handle_list_cref p_tracks, track_property_callback& p_out) {
+			workThisIndex(guid_foo_enhanced_playcount_index, 0, p_tracks, p_out);
+		}
+		void enumerate_properties_v2(metadb_handle_list_cref p_tracks, track_property_callback_v2& p_out) {
+			if (p_out.is_group_wanted(strPropertiesGroup)) {
+				enumerate_properties(p_tracks, p_out);
+			}
+		}
+
+		bool is_our_tech_info(const char* p_name) {
+			// If we do stuff with tech infos read from the file itself (see file_info::info_* methods), signal whether this field belongs to us
+			// We don't do any of this, hence false
+			return false;
+		}
+
+	};
+
+
+	static service_factory_single_t<track_property_provider_impl> g_track_property_provider_impl;
 }
