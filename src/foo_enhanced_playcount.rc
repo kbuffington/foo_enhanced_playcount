@@ -59,6 +59,10 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,21,18,95,8
     RTEXT           "Last.fm Username:",IDC_STATIC,29,36,59,8
     EDITTEXT        IDC_EPC_LASTFM_NAME,91,35,93,12,ES_AUTOHSCROLL
+    CONTROL         "Automatically pull recent scrobbles",IDC_AUTO_PULL_SCROBBLES,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,55,162,9
+    LTEXT           "Next Legacy Pull from:",IDC_LAST_PULL_DATE,39,70,211,8
+    PUSHBUTTON      "Reset Pull Date",IDC_RESET_BUTTON,233,65,73,14
     CONTROL         "Compare Album field when retrieving scrobbles",IDC_COMPARE_ALBUM_FIELDS,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,87,162,10
     CONTROL         "Increment Last.fm playcount when %play_count% increments",IDC_INCREMENT_WITH_PLAYCOUNT,
@@ -67,10 +71,6 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,120,105,10
     CONTROL         "Wait to retrieve scrobbles",IDC_DELAY_PULLING_SCROBBLES,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,137,102,10
-    CONTROL         "Automatically pull recent scrobbles",IDC_AUTO_PULL_SCROBBLES,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,55,162,9
-    LTEXT           "Next Legacy Pull from:",IDC_LAST_PULL_DATE,39,70,211,8
-    PUSHBUTTON      "Reset Pull Date",IDC_RESET_BUTTON,233,65,73,14
     LTEXT           "Artist:",IDC_STATIC,34,170,41,8
     EDITTEXT        IDC_EPC_ARTIST_STRING,77,168,219,12,ES_AUTOHSCROLL
     GROUPBOX        "",IDC_STATIC,26,157,281,62
