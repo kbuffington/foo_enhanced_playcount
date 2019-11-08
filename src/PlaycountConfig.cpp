@@ -23,9 +23,9 @@ PlaycountConfig::PlaycountConfig()
 	, delayScrobbleRetrieval(true)
 	, LastfmUsername(DefaultLastfmUsername)
 	, LruCacheSize(DefaultLruCacheSize)
-	, UnusedStr1("")
-	, UnusedStr2("")
-	, UnusedStr3("")
+	, ArtistTfString(DefaultArtistTfString)
+	, AlbumTfString(DefaultAlbumTfString)
+	, TitleTfString(DefaultTitleTfString)
 	, CacheSize(0)
 	, latestScrobbleChecked(0)
 	, earliestScrobbleChecked(0)
@@ -51,9 +51,9 @@ void PlaycountConfig::get_data_raw(stream_writer* p_stream, abort_callback& p_ab
 		CacheSize = 50;
 	}
 	p_stream->write_string(LruCacheSize, p_abort);
-	p_stream->write_string(UnusedStr1, p_abort);
-	p_stream->write_string(UnusedStr2, p_abort);
-	p_stream->write_string(UnusedStr3, p_abort);
+	p_stream->write_string(ArtistTfString, p_abort);
+	p_stream->write_string(AlbumTfString, p_abort);
+	p_stream->write_string(TitleTfString, p_abort);
 
 	p_stream->write_lendian_t(latestScrobbleChecked, p_abort);
 	p_stream->write_lendian_t(earliestScrobbleChecked, p_abort);
@@ -75,9 +75,19 @@ void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_ab
 
 	p_stream->read_string(cfg.LastfmUsername, p_abort);
 	p_stream->read_string(cfg.LruCacheSize, p_abort);
-	p_stream->read_string(cfg.UnusedStr1, p_abort);
-	p_stream->read_string(cfg.UnusedStr2, p_abort);
-	p_stream->read_string(cfg.UnusedStr3, p_abort);
+	p_stream->read_string(cfg.ArtistTfString, p_abort);
+	p_stream->read_string(cfg.AlbumTfString, p_abort);
+	p_stream->read_string(cfg.TitleTfString, p_abort);
+
+	if (cfg.ArtistTfString.get_length() == 0) {
+		cfg.ArtistTfString = DefaultArtistTfString;
+	}
+	if (cfg.AlbumTfString.get_length() == 0) {
+		cfg.AlbumTfString = DefaultAlbumTfString;
+	}
+	if (cfg.TitleTfString.get_length() == 0) {
+		cfg.TitleTfString = DefaultTitleTfString;
+	}
 
 	if (version == 1 && std::stoi(cfg.LruCacheSize.c_str()) < 40) {
 		cfg.LruCacheSize = DefaultLruCacheSize; // increase default cache size
@@ -93,7 +103,11 @@ void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_ab
 		cfg.UnusedBool3 = true;
 		cfg.UnusedBool4 = true;
 	} else {
+		//t_filetimestamp t;
+		//p_stream->read_lendian_t(t, p_abort);
+		//cfg.latestScrobbleChecked = 1563892995;
 		p_stream->read_lendian_t(cfg.latestScrobbleChecked, p_abort);
+		//p_stream->read_lendian_t(t, p_abort);
 		p_stream->read_lendian_t(cfg.earliestScrobbleChecked, p_abort);
 		p_stream->read_lendian_t(cfg.autoPullScrobbles, p_abort);
 		p_stream->read_lendian_t(cfg.UnusedBool2, p_abort);

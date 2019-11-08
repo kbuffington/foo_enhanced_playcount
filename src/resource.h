@@ -5,6 +5,9 @@
 #define IDD_PREFERENCES                 148
 #define IDC_EPC_LASTFM_NAME             1001
 #define IDC_ENABLE_LASTFM_PLAYCOUNTS    1002
+#define IDC_EPC_ARTIST_STRING           1003
+#define IDC_EPC_ALBUM_STRING            1004
+#define IDC_EPC_TITLE_STRING            1005
 #define IDC_SLIDER1                     1012
 #define IDC_INCREMENT_WITH_PLAYCOUNT    1014
 #define IDC_REMOVE_DUPLICATE_SCROBBLES  1021
@@ -13,6 +16,7 @@
 #define IDC_AUTO_PULL_SCROBBLES         1024
 #define IDC_LAST_PULL_DATE              1025
 #define IDC_RESET_BUTTON                1026
+#define IDC_FIELD_MAPPINGS_LABEL        1027
 
 // Next default values for new objects
 // 

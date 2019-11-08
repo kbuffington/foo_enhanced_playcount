@@ -4,6 +4,9 @@ namespace foo_enhanced_playcount {
 
 	__declspec(selectany) extern char const* const DefaultLastfmUsername = "<none>";
 	__declspec(selectany) extern char const* const DefaultLruCacheSize = "40";
+	__declspec(selectany) extern char const* const DefaultArtistTfString = "%artist%";
+	__declspec(selectany) extern char const* const DefaultAlbumTfString = "%album%";
+	__declspec(selectany) extern char const* const DefaultTitleTfString = "%title%";
 
 	class PlaycountConfig : public cfg_var {
 	public:
@@ -23,9 +26,9 @@ namespace foo_enhanced_playcount {
 
 		pfc::string8 LastfmUsername;
 		pfc::string8 LruCacheSize;
-		pfc::string8 UnusedStr1;
-		pfc::string8 UnusedStr2;
-		pfc::string8 UnusedStr3;
+		pfc::string8 ArtistTfString;
+		pfc::string8 AlbumTfString;
+		pfc::string8 TitleTfString;
 
 		unsigned int CacheSize;
 		t_filetimestamp latestScrobbleChecked;

@@ -375,26 +375,38 @@ namespace foo_enhanced_playcount {
 		}
 	}
 
+	titleformat_object::ptr artist_script;
+	titleformat_object::ptr album_script;
+	titleformat_object::ptr title_script;
+
 	std::vector<t_filetimestamp> getLastFmPlaytimes(metadb_handle_ptr p_item, metadb_index_hash hash, const t_filetimestamp lastPlay) {
 		std::vector<t_filetimestamp> playTimes;
 		file_info_impl info;
+		pfc::string_formatter artist, title, album = "";
+
 		if (config.EnableLastfmPlaycounts && p_item->get_info(info)) {
-			if (info.meta_exists("ARTIST") && info.meta_exists("TITLE") &&
-				(!config.CompareAlbumFields || info.meta_exists("ALBUM")) &&	// compare album fields if required
-				info.get_length() > 29) {	// you can't scrobble a song less than 30 seconds long, so don't check to see if it was scrobbled.
+			if (artist_script.is_empty()) {
+				static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(artist_script, config.ArtistTfString);
+			}
+			if (album_script.is_empty()) {
+				static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(album_script, config.AlbumTfString);
+			}
+			if (title_script.is_empty()) {
+				static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(title_script, config.TitleTfString);
+			}
+
+			p_item->format_title(NULL, artist, artist_script, NULL);
+			if (config.CompareAlbumFields) {
+				p_item->format_title(NULL, album, album_script, NULL);
+			}
+			p_item->format_title(NULL, title, title_script, NULL);
+
+			if (artist.get_length() > 0 && title.get_length() > 0 && 
+					info.get_length() > 29) {	// you can't scrobble a song less than 30 seconds long, so don't check to see if it was scrobbled.
 				pfc::string8 time;
 #ifdef DEBUG
 				t_filetimestamp start = filetimestamp_from_system_timer();
 #endif
-				pfc::string8 artist;
-				pfc::string8 title; 
-				pfc::string8 album = "";
-				
-				artist = info.meta_get("ARTIST", 0);
-				title = info.meta_get("TITLE", 0);
-				if (config.CompareAlbumFields) {
-					album = info.meta_get("ALBUM", 0);
-				}
 				
 				Lastfm *lfm = new Lastfm(hash, artist, album, title);
 				playTimes = lfm->queryByTrack(lastPlay);

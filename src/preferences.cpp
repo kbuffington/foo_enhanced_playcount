@@ -8,6 +8,10 @@
 
 namespace foo_enhanced_playcount {
 
+	extern titleformat_object::ptr artist_script;
+	extern titleformat_object::ptr album_script;
+	extern titleformat_object::ptr title_script;
+
 namespace {
 
 class PlaycountPreferencesDialog
@@ -37,6 +41,9 @@ public:
 		COMMAND_HANDLER_EX(IDC_REMOVE_DUPLICATE_SCROBBLES, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_DELAY_PULLING_SCROBBLES, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_EPC_LASTFM_NAME, EN_CHANGE, OnEditChange)
+		COMMAND_HANDLER_EX(IDC_EPC_ARTIST_STRING, EN_CHANGE, OnEditChange)
+		COMMAND_HANDLER_EX(IDC_EPC_ALBUM_STRING, EN_CHANGE, OnEditChange)
+		COMMAND_HANDLER_EX(IDC_EPC_TITLE_STRING, EN_CHANGE, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_AUTO_PULL_SCROBBLES, BN_CLICKED, OnEditChange)
 		COMMAND_HANDLER_EX(IDC_RESET_BUTTON, BN_CLICKED, OnClickedResetButton)
 	END_MSG_MAP()
@@ -65,6 +72,9 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 	bindings_.Bind(config_.RemoveDuplicateLastfmScrobbles, m_hWnd, IDC_REMOVE_DUPLICATE_SCROBBLES);
 	bindings_.Bind(config_.delayScrobbleRetrieval, m_hWnd, IDC_DELAY_PULLING_SCROBBLES);
 	bindings_.Bind(config_.LastfmUsername, m_hWnd, IDC_EPC_LASTFM_NAME);
+	bindings_.Bind(config_.ArtistTfString, m_hWnd, IDC_EPC_ARTIST_STRING);
+	bindings_.Bind(config_.AlbumTfString, m_hWnd, IDC_EPC_ALBUM_STRING);
+	bindings_.Bind(config_.TitleTfString, m_hWnd, IDC_EPC_TITLE_STRING);
 	bindings_.Bind(config_.autoPullScrobbles, m_hWnd, IDC_AUTO_PULL_SCROBBLES);
 	pfc::string8 str = "Next historical scrobble pull from: ";
 	str << format_filetimestamp::format_filetimestamp(pfc::fileTimeUtoW(config_.earliestScrobbleChecked));
@@ -181,6 +191,9 @@ void PlaycountPreferencesDialog::reset()
 	CheckDlgButton(IDC_DELAY_PULLING_SCROBBLES, BST_CHECKED);
 	CheckDlgButton(IDC_AUTO_PULL_SCROBBLES, BST_CHECKED);
 	uSetDlgItemText(m_hWnd, IDC_EPC_LASTFM_NAME, DefaultLastfmUsername);
+	uSetDlgItemText(m_hWnd, IDC_EPC_ARTIST_STRING, DefaultArtistTfString);
+	uSetDlgItemText(m_hWnd, IDC_EPC_ALBUM_STRING, DefaultAlbumTfString);
+	uSetDlgItemText(m_hWnd, IDC_EPC_TITLE_STRING, DefaultTitleTfString);
 
 	OnChanged();
 }
@@ -197,10 +210,28 @@ void PlaycountPreferencesDialog::OnClickedResetButton(UINT uNotifyCode, int nID,
 
 void PlaycountPreferencesDialog::apply()
 {
+	pfc::string8_fast text;
+	uGetDlgItemText(m_hWnd, IDC_EPC_ARTIST_STRING, text);
+	if (text.get_length() == 0) {
+		uSetDlgItemText(m_hWnd, IDC_EPC_ARTIST_STRING, DefaultArtistTfString);
+	}
+	uGetDlgItemText(m_hWnd, IDC_EPC_ALBUM_STRING, text);
+	if (text.get_length() == 0) {
+		uSetDlgItemText(m_hWnd, IDC_EPC_ALBUM_STRING, DefaultAlbumTfString);
+	}
+	uGetDlgItemText(m_hWnd, IDC_EPC_TITLE_STRING, text);
+	if (text.get_length() == 0) {
+		uSetDlgItemText(m_hWnd, IDC_EPC_TITLE_STRING, DefaultTitleTfString);
+	}
+
 	bindings_.FlowToVar();
 	
 	// Cache size used to be an option, now pinning at 50. Will be removed shortly
 	prefQ->setCacheSize(50);
+
+	artist_script.release();
+	album_script.release();
+	title_script.release();
 	
 	OnChanged();
 
