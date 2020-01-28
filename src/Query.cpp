@@ -84,12 +84,9 @@ void Query::add_apikey() {
 }
 
 pfc::string8 Query::url_encode(pfc::string8 in) {
-	in.replace_string("%", "%25", 0);	// escape % first, otherwise we'll be double escaping # or &
-	in.replace_string("#", "%23", 0);
-	in.replace_string("&", "%26", 0);
-	in.replace_string("+", "%2B", 0);
-
-	return in;
+	pfc::string8 encoded;
+	pfc::urlEncode(encoded, in);
+	return encoded;
 }
 
 int hashCode(std::string text) {
@@ -132,8 +129,8 @@ pfc::string8 Query::perform(metadb_index_hash hash, abort_callback &callback) {
 		try {
 			response = request->run_ex(url, callback);
 			response->read_string_raw(buf, callback);
-		} catch (...) {
-			FB2K_console_formatter() << COMPONENT_NAME": Exception making call to last.fm. Returning empty response.";
+		} catch (const std::exception& e) {
+			FB2K_console_formatter() << COMPONENT_NAME": Exception making call to last.fm: " << e.what();
 			buf = "{}";
 			cacheable = false;
 		}
