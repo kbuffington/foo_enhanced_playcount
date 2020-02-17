@@ -43,6 +43,9 @@
     <ClCompile Include="fields.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="artistTimes.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\rapidjson\rapidjson.h">
@@ -76,6 +79,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="thread_pool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="artistTimes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

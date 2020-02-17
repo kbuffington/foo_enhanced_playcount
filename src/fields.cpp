@@ -3,6 +3,7 @@
 #include "PlaycountConfig.h"
 #include <sstream>
 #include "PlayedTimes.h"
+#include "artistTimes.h"
 
 using namespace foo_enhanced_playcount;
 
@@ -11,8 +12,6 @@ extern PlaycountConfig const& config;
 namespace enhanced_playcount_fields {
 
 	std::string getPlayTimesStr(std::vector<t_filetimestamp> playTimes, bool convertTimeStamp, bool jsTimeStamp, bool noArrayChars = false);
-
-#define kNoDate 199999999990000000
 
 	enum provided_fields {
 		PLAYED_TIMES,
@@ -30,6 +29,8 @@ namespace enhanced_playcount_fields {
 		LAST_PLAYED_ENHANCED,
 		ADDED_ENHANCED,
 
+		ARTIST_LAST_PLAYED,
+
 		MAX_NUM_FIELDS	// always last entry in this enum
 	};
 
@@ -45,6 +46,10 @@ namespace enhanced_playcount_fields {
 		}
 
 		return playTimes;
+	}
+
+	static t_filetimestamp artisttime_get(metadb_index_hash hash) {
+
 	}
 
 	static int playcount_get(metadb_index_hash hash, bool last_fm_times) {
@@ -114,16 +119,24 @@ namespace enhanced_playcount_fields {
 			case ADDED_ENHANCED:
 				out = "added_enhanced";
 				break;
+			case ARTIST_LAST_PLAYED:
+				out = "artist_last_played";
+				break;
 			}
 		}
 		bool process_field(t_uint32 index, metadb_handle* handle, titleformat_text_out* out) {
 			PFC_ASSERT(index >= 0 && index < MAX_NUM_FIELDS);
 			metadb_index_hash hash;
-			if (!clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(handle, hash)) return false;
+			GUID meta_guid = guid_foo_enhanced_playcount_index;
+			if (index == ARTIST_LAST_PLAYED) {
+				meta_guid = guid_foo_enhanced_playcount_artist_index;
+			}
+			if (!clientByGUID(meta_guid)->hashHandle(handle, hash)) return false;
 			std::vector<t_filetimestamp> playTimes, lastfmPlayTimes;
 			t_filetimestamp fbTime = 0, lastfmTime = 0, firstPlayed = 0, lastPlayed = 0;
 			file_info_impl info;
 			unsigned int count;
+			pfc::string_formatter p_out;
 
 			switch (index) {
 			case PLAYED_TIMES:
@@ -216,7 +229,6 @@ namespace enhanced_playcount_fields {
 					if (first_played_script.is_empty()) {
 						static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(first_played_script, "%first_played%");
 					}
-					pfc::string_formatter p_out;
 					handle->format_title(NULL, p_out, first_played_script, NULL);
 
 					if (strcmp(p_out.toString(), "N/A")) {
@@ -253,7 +265,6 @@ namespace enhanced_playcount_fields {
 					if (last_played_script.is_empty()) {
 						static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(last_played_script, "%last_played%");
 					}
-					pfc::string_formatter p_out;
 					handle->format_title(NULL, p_out, last_played_script, NULL);
 
 					if (strcmp(p_out.toString(), "N/A")) {
@@ -271,8 +282,7 @@ namespace enhanced_playcount_fields {
 				if (date_added_script.is_empty()) {
 					static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(date_added_script, "%added%");
 				}
-				pfc::string_formatter p_out;
-
+				
 				handle->format_title(NULL, p_out, date_added_script, NULL);
 
 				if (strcmp(p_out.toString(), "N/A")) {
@@ -290,6 +300,16 @@ namespace enhanced_playcount_fields {
 				}
 				else {
 					return false;	// can we get here?
+				}
+				break;
+			case ARTIST_LAST_PLAYED:
+				artist_record_t rec = getArtistRecord(hash);
+				if (rec.artistLastPlayed == kNoDate) {
+					out->write(titleformat_inputtypes::meta, "N/A");
+					return false;
+				} else {
+					out->write(titleformat_inputtypes::meta,
+						format_filetimestamp::format_filetimestamp(rec.artistLastPlayed));
 				}
 				break;
 			}
