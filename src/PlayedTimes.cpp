@@ -8,6 +8,7 @@
 #include "globals.h"
 #include "PlaycountConfig.h"
 #include "PlayedTimes.h"
+#include "artistTimes.h"
 #include "thread_pool.h"
 #include <atomic>
 #include <mutex>
@@ -26,6 +27,7 @@ namespace foo_enhanced_playcount {
 	// and data applied to one will also show up with the rest.
 	static const char strObsoletePinTo[] = "%artist% %album% $if2(%discnumber%,1) %tracknumber% %title%";
 	static const char strPinTo[] = "%artist% - $year($if2(%date%,%original release date%)) - %album% $if2(%discnumber%,1)-%tracknumber% %title%";
+	static const char strArtistPinTo[] = "%artist%";
 
 	// Retain pinned data for four weeks if there are no matching items in library
 	static const t_filetimestamp retentionPeriod = system_time_periods::week * 4;
@@ -72,10 +74,20 @@ namespace foo_enhanced_playcount {
 		// Using service_impl_single_t, reference counting disabled
 		// This is somewhat ugly, operating on raw pointers instead of service_ptr, but OK for this purpose
 		static metadb_index_client_impl * g_clientIndex = new service_impl_single_t<metadb_index_client_impl>(strPinTo, true);
+		static metadb_index_client_impl* g_ArtistIndex = new service_impl_single_t<metadb_index_client_impl>(strArtistPinTo, true);
 		static metadb_index_client_impl * g_clientObsolete = new service_impl_single_t<metadb_index_client_impl>(strObsoletePinTo);
 
-		PFC_ASSERT(guid == guid_foo_enhanced_playcount_index || guid == guid_foo_enhanced_playcount_obsolete);
-		return (guid == guid_foo_enhanced_playcount_index) ? g_clientIndex : g_clientObsolete;
+		PFC_ASSERT(guid == guid_foo_enhanced_playcount_index || 
+			guid == guid_foo_enhanced_playcount_obsolete ||
+			guid == guid_foo_enhanced_playcount_artist_index);
+
+		if (guid == guid_foo_enhanced_playcount_index) {
+			return g_clientIndex;
+		}
+		else if (guid == guid_foo_enhanced_playcount_artist_index) {
+			return g_ArtistIndex;
+		}
+		return g_clientObsolete;
 	}
 
 	// Static cached ptr to metadb_index_manager
@@ -107,8 +119,10 @@ namespace foo_enhanced_playcount {
 						api->add(clientByGUID(guid_foo_enhanced_playcount_obsolete), guid_foo_enhanced_playcount_obsolete, retentionPeriod);
 					}
 					api->add(clientByGUID(guid_foo_enhanced_playcount_index), guid_foo_enhanced_playcount_index, retentionPeriod);
+					api->add(clientByGUID(guid_foo_enhanced_playcount_artist_index), guid_foo_enhanced_playcount_artist_index, retentionPeriod);
 				} catch (std::exception const & e) {
 					api->remove(guid_foo_enhanced_playcount_index);
+					api->remove(guid_foo_enhanced_playcount_artist_index);
 					FB2K_console_formatter() << COMPONENT_NAME": Critical initialization failure: " << e;
 					return;
 				}
@@ -163,7 +177,7 @@ namespace foo_enhanced_playcount {
 		unsigned int buf[10004];
 		record_t record;
 		int size = 0;
-		if (g_cachedAPI != NULL) size = g_cachedAPI->get_user_data_here(index_guid, hash, &buf, sizeof(buf));
+		size = theAPI()->get_user_data_here(index_guid, hash, &buf, sizeof(buf));
 		if (!size) {
 			return record;
 		}
@@ -326,8 +340,8 @@ namespace foo_enhanced_playcount {
 						}
 						filter = search_filter_manager_v2::get()->create_ex(query, new service_impl_t<completion_notify_dummy>(), search_filter_manager_v2::KFlagSuppressNotify);
 					}
-					catch (...) {
-						// TODO: safely handle exceptions here once we've weeded out errors
+					catch (const std::exception & e) {
+						FB2K_console_formatter() << COMPONENT_NAME": Exception processing recent scrobbles: " << e.what();
 					}
 					filter->test_multi(library, mask.get_ptr());
 					library.filter_mask(mask.get_ptr());
@@ -431,8 +445,9 @@ namespace foo_enhanced_playcount {
 	class my_playback_statistics_collector : public playback_statistics_collector {
 	public:
 		void on_item_played(metadb_handle_ptr p_item) {
-			metadb_index_hash hash;
+			metadb_index_hash hash, artistHash;
 			clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(p_item, hash);
+			clientByGUID(guid_foo_enhanced_playcount_artist_index)->hashHandle(p_item, artistHash);
 
 			record_t record = getRecord(hash);
 			if (record.numFoobarPlays == 0) {
@@ -445,6 +460,7 @@ namespace foo_enhanced_playcount {
 			record.numFoobarPlays = record.foobarPlaytimes.size();
 
 			setRecord(hash, record);
+			setArtistLastPlayed(artistHash);
 		}
 	};
 

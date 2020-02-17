@@ -132,8 +132,9 @@ pfc::string8 Query::perform(metadb_index_hash hash, abort_callback &callback) {
 		try {
 			response = request->run_ex(url, callback);
 			response->read_string_raw(buf, callback);
-		} catch (...) {
-			FB2K_console_formatter() << COMPONENT_NAME": Exception making call to last.fm. Returning empty response.";
+		}
+		catch (const std::exception & e) {
+			FB2K_console_formatter() << COMPONENT_NAME": Exception making call to last.fm: " << e.what();
 			buf = "{}";
 			cacheable = false;
 		}
