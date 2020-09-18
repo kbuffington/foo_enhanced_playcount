@@ -25,7 +25,7 @@ namespace Gdiplus
 #include "resource.h"
 #include <foobar2000/helpers/foobar2000+atl.h>
 #include <foobar2000/helpers/atl-misc.h>
-//#include <foobar2000/helpers/filetimetools.h>
+#include <foobar2000/helpers/filetimetools.h>
 
 #include <ActivScp.h>
 #include <ComDef.h>

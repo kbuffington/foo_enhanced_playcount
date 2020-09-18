@@ -2,8 +2,6 @@
 #include "globals.h"
 #include "PlayedTimes.h"
 
-// Sample initquit implementation. See also: initquit class documentation in relevant header.
-
 class myinitquit : public initquit {
 public:
 	void on_init() {

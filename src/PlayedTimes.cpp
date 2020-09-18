@@ -544,16 +544,18 @@ namespace foo_enhanced_playcount {
 			std::vector<t_filetimestamp> playTimes;
 			playTimes = getLastFmPlaytimes(m_handle, hash,
 				record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
-			record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
-			record.numLastfmPlays = record.lastfmPlaytimes.size();
+			if (playTimes.size()) {
+				record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
+				record.numLastfmPlays = record.lastfmPlaytimes.size();
 
-			if (record.numFoobarPlays == 0) {
-				getFirstLastPlayedTimes(m_handle, &record);
+				if (record.numFoobarPlays == 0) {
+					getFirstLastPlayedTimes(m_handle, &record);
+				}
+
+				setRecord(hash, record);
 			}
-
-			setRecord(hash, record);
 	
-			if (doRefresh) {
+			if (doRefresh && playTimes.size()) {
 				// non-threaded path
 				pfc::list_t<metadb_index_hash> hashes;
 				hashes += hash;
