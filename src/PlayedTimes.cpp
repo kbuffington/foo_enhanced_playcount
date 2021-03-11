@@ -657,7 +657,7 @@ namespace foo_enhanced_playcount {
 		strncpy_s(firstPlayed, p_out.toString(), divider);
 		strcpy_s(lastPlayed, p_out.toString() + divider + 1);
 
-		if (strcmp(firstPlayed, "N/A")) {
+		if (strcmp(firstPlayed, "N/A") && strcmp(firstPlayed, "?")) {
 			fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
 			lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
 

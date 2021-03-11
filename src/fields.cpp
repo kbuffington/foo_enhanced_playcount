@@ -339,20 +339,22 @@ namespace enhanced_playcount_fields {
 			str += "[";
 		}
 		for (std::vector<t_filetimestamp>::iterator it = playTimes.begin(); it != playTimes.end(); ++it, ++index) {
-			if (convertTimeStamp) {
-				if (!noArrayChars) {
-					str += "\"";
+			if (*it != 0) {
+				if (convertTimeStamp) {
+					if (!noArrayChars) {
+						str += "\"";
+					}
+					str.append(format_filetimestamp::format_filetimestamp(*it));
+					if (!noArrayChars) {
+						str += "\"";
+					}
 				}
-				str.append(format_filetimestamp::format_filetimestamp(*it));
-				if (!noArrayChars) {
-					str += "\"";
+				else {
+					str += t_uint64_to_string(*it, jsTimeStamp);
 				}
-			}
-			else {
-				str += t_uint64_to_string(*it, jsTimeStamp);
-			}
-			if (index + 1 < playTimes.size()) {
-				str.append(", ");
+				if (index + 1 < playTimes.size()) {
+					str.append(", ");
+				}
 			}
 		}
 		if (!noArrayChars) {
