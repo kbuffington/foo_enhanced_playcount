@@ -1,7 +1,7 @@
 #pragma once
 
 #define COMPONENT_NAME			"foo_enhanced_playcount"
-#define COMPONENT_VERSION		"4.3.2"
+#define COMPONENT_VERSION		"4.3.3"
 
 #define kNoDate 199999999990000000
 

@@ -299,7 +299,9 @@ namespace enhanced_playcount_fields {
 					}
 				}
 				else {
-					return false;	// can we get here?
+					// if playing a song that is not in media library %added% returns "N/A" so we should too
+					out->write(titleformat_inputtypes::meta, "N/A");
+					return false;
 				}
 				break;
 			case ARTIST_LAST_PLAYED:
