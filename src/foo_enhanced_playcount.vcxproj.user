@@ -9,7 +9,7 @@
     <ShowAllFiles>false</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommand>D:\Source\foobar2000_portable\foobar2000.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommand>D:\Source\foobar2000-2.0_portable\foobar2000.exe</LocalDebuggerCommand>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>
