@@ -12,7 +12,7 @@ static const GUID context_menu_guid = { 0xb09794fd, 0x65c0, 0x4c1d,{ 0x99, 0xeb,
 // Switch to contextmenu_group_factory to embed your commands in the root menu but separated from other commands.
 
 //static contextmenu_group_factory g_mygroup(guid_mygroup, contextmenu_groups::root, 0);
-static contextmenu_group_popup_factory g_mygroup(context_menu_guid, contextmenu_groups::root, "Enhanced Playcount", 0);
+static contextmenu_group_popup_factory g_mygroup(context_menu_guid, contextmenu_groups::root, "Enhanced Playback Statistics", 0);
 
 PlaycountConfig const& cfg{ Config };
 

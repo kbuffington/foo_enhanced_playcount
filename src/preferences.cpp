@@ -253,7 +253,7 @@ class PlaycountPreferencesPage : public preferences_page_impl<PlaycountPreferenc
 public:
 	virtual ~PlaycountPreferencesPage() = default;
 
-	virtual const char* get_name() override { return "Enhanced Playcount"; }
+	virtual const char* get_name() override { return "Enhanced Playback Statistics"; }
 
 	virtual GUID get_guid() override
 	{

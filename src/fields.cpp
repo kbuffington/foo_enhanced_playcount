@@ -365,7 +365,7 @@ namespace enhanced_playcount_fields {
 		return str;
 	}
 
-	static const char strPropertiesGroup[] = "Enhanced Playcount (Last.fm scrobble data)";
+	static const char strPropertiesGroup[] = "Enhanced Playback Statistics (Last.fm scrobble data)";
 
 	// This class provides our information for the properties dialog
 	class track_property_provider_impl : public track_property_provider_v2 {
