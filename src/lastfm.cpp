@@ -263,7 +263,7 @@ int unsortedRemoveDuplicates(std::vector<scrobbleData>& scrobbles)
 		}
 	}
 
-	return seenScrobbles.size();
+	return (int) seenScrobbles.size();
 }
 
 bool Lastfm::parseRecentTracksJson(const pfc::string8 buffer, const int limit, std::vector<scrobbleData>& scrobble_vec) {

@@ -86,7 +86,7 @@ pfc::string8 Query::url_encode(pfc::string8 in) {
 }
 
 int hashCode(std::string text) {
-	int hash = 0, strlen = text.length(), i;
+	int hash = 0, strlen = (int) text.length(), i;
 	char character;
 	if (strlen == 0)
 		return hash;

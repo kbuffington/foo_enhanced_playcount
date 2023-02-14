@@ -176,7 +176,7 @@ namespace foo_enhanced_playcount {
 	record_t getRecord(metadb_index_hash hash, const GUID index_guid) {
 		unsigned int buf[10004];
 		record_t record;
-		int size = 0;
+		size_t size = 0;
 		size = theAPI()->get_user_data_here(index_guid, hash, &buf, sizeof(buf));
 		if (!size) {
 			return record;
@@ -191,7 +191,7 @@ namespace foo_enhanced_playcount {
 
 		switch (record.version) {
 			case 0:
-				numElements = size / sizeof(t_filetimestamp);
+				numElements = (int) size / sizeof(t_filetimestamp);
 				record.numFoobarPlays = numElements;
 				copyTimestampsToVector((t_filetimestamp *)buf, record.numFoobarPlays, record.foobarPlaytimes);
 				record.numLastfmPlays = 0;
@@ -457,7 +457,7 @@ namespace foo_enhanced_playcount {
 			time /= 10000000;
 			time *= 10000000;
 			record.foobarPlaytimes.push_back(time);
-			record.numFoobarPlays = record.foobarPlaytimes.size();
+			record.numFoobarPlays = (unsigned int) record.foobarPlaytimes.size();
 
 			setRecord(hash, record);
 			setArtistLastPlayed(artistHash);
@@ -546,7 +546,7 @@ namespace foo_enhanced_playcount {
 				record.lastfmPlaytimes.size() ? record.lastfmPlaytimes.back() : 0);
 			if (playTimes.size()) {
 				record.lastfmPlaytimes.insert(record.lastfmPlaytimes.end(), playTimes.begin(), playTimes.end());
-				record.numLastfmPlays = record.lastfmPlaytimes.size();
+				record.numLastfmPlays = (unsigned int) record.lastfmPlaytimes.size();
 
 				if (record.numFoobarPlays == 0) {
 					getFirstLastPlayedTimes(m_handle, &record);
@@ -665,7 +665,7 @@ namespace foo_enhanced_playcount {
 			if (fp != lp) {
 				record->foobarPlaytimes.push_back(lp);
 			}
-			record->numFoobarPlays = record->foobarPlaytimes.size();
+			record->numFoobarPlays = (unsigned int) record->foobarPlaytimes.size();
 		}
 	}
 
