@@ -191,7 +191,7 @@ namespace enhanced_playcount_fields {
 				}
 				else {
 					out->write(titleformat_inputtypes::meta,
-						format_filetimestamp::format_filetimestamp(playTimes.front()));
+						foobar2000_io::format_filetimestamp(playTimes.front()));
 				}
 				break;
 			case LASTFM_LAST_PLAYED:
@@ -202,7 +202,7 @@ namespace enhanced_playcount_fields {
 				}
 				else {
 					out->write(titleformat_inputtypes::meta,
-						format_filetimestamp::format_filetimestamp(playTimes.back()));
+						foobar2000_io::format_filetimestamp(playTimes.back()));
 				}
 				break;
 			case FIRST_PLAYED_ENHANCED:
@@ -223,7 +223,7 @@ namespace enhanced_playcount_fields {
 				}
 				if (firstPlayed != kNoDate) {
 					out->write(titleformat_inputtypes::meta,
-						format_filetimestamp::format_filetimestamp(firstPlayed));
+						foobar2000_io::format_filetimestamp(firstPlayed));
 				}
 				else {
 					if (first_played_script.is_empty()) {
@@ -234,7 +234,7 @@ namespace enhanced_playcount_fields {
 					if (strcmp(p_out.toString(), "N/A")) {
 						t_filetimestamp first_played = foobar2000_io::filetimestamp_from_string(p_out);
 						out->write(titleformat_inputtypes::meta,
-							format_filetimestamp::format_filetimestamp(first_played));
+							foobar2000_io::format_filetimestamp(first_played));
 					}
 					else {
 						out->write(titleformat_inputtypes::meta, "N/A");
@@ -259,7 +259,7 @@ namespace enhanced_playcount_fields {
 				}
 				if (lastPlayed) {
 					out->write(titleformat_inputtypes::meta,
-						format_filetimestamp::format_filetimestamp(lastPlayed));
+						foobar2000_io::format_filetimestamp(lastPlayed));
 				}
 				else {
 					if (last_played_script.is_empty()) {
@@ -270,7 +270,7 @@ namespace enhanced_playcount_fields {
 					if (strcmp(p_out.toString(), "N/A")) {
 						t_filetimestamp last_played = foobar2000_io::filetimestamp_from_string(p_out);
 						out->write(titleformat_inputtypes::meta,
-							format_filetimestamp::format_filetimestamp(last_played));
+							foobar2000_io::format_filetimestamp(last_played));
 					}
 					else {
 						out->write(titleformat_inputtypes::meta, "N/A");
@@ -291,11 +291,11 @@ namespace enhanced_playcount_fields {
 					lastfmPlayTimes = playtimes_get(hash, true);
 					if (lastfmPlayTimes.size() && lastfmPlayTimes.front() < added) {
 						out->write(titleformat_inputtypes::meta,
-							format_filetimestamp::format_filetimestamp(lastfmPlayTimes.front()));
+							foobar2000_io::format_filetimestamp(lastfmPlayTimes.front()));
 					}
 					else {
 						out->write(titleformat_inputtypes::meta,
-							format_filetimestamp::format_filetimestamp(added));
+							foobar2000_io::format_filetimestamp(added));
 					}
 				}
 				else {
@@ -311,7 +311,7 @@ namespace enhanced_playcount_fields {
 					return false;
 				} else {
 					out->write(titleformat_inputtypes::meta,
-						format_filetimestamp::format_filetimestamp(rec.artistLastPlayed));
+						foobar2000_io::format_filetimestamp(rec.artistLastPlayed));
 				}
 				break;
 			}
@@ -346,7 +346,7 @@ namespace enhanced_playcount_fields {
 					if (!noArrayChars) {
 						str += "\"";
 					}
-					str.append(format_filetimestamp::format_filetimestamp(*it));
+					str.append(foobar2000_io::format_filetimestamp(*it));
 					if (!noArrayChars) {
 						str += "\"";
 					}
@@ -429,8 +429,8 @@ namespace enhanced_playcount_fields {
 					}
 				}
 				if (first_scrobble != 0) {
-					first_scrobble_str = format_filetimestamp::format_filetimestamp(first_scrobble);
-					last_scrobble_str = format_filetimestamp::format_filetimestamp(last_scrobble);
+					first_scrobble_str = foobar2000_io::format_filetimestamp(first_scrobble);
+					last_scrobble_str = foobar2000_io::format_filetimestamp(last_scrobble);
 				}
 			}
 

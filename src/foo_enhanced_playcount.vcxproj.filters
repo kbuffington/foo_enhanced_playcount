@@ -22,9 +22,6 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PCH.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="contextmenu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

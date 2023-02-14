@@ -77,7 +77,7 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 	bindings_.Bind(config_.TitleTfString, m_hWnd, IDC_EPC_TITLE_STRING);
 	bindings_.Bind(config_.autoPullScrobbles, m_hWnd, IDC_AUTO_PULL_SCROBBLES);
 	pfc::string8 str = "Next historical scrobble pull from: ";
-	str << format_filetimestamp::format_filetimestamp(pfc::fileTimeUtoW(config_.earliestScrobbleChecked));
+	str << foobar2000_io::format_filetimestamp(pfc::fileTimeUtoW(config_.earliestScrobbleChecked));
 	GetDlgItem(IDC_LAST_PULL_DATE).SetWindowTextW(CA2W(str));
 	bindings_.FlowToControl();
 
@@ -202,7 +202,7 @@ void PlaycountPreferencesDialog::OnClickedResetButton(UINT uNotifyCode, int nID,
 {
 	config_.earliestScrobbleChecked = 0;
 	pfc::string8 str = "Next historical scrobble pull from: ";
-	str << format_filetimestamp::format_filetimestamp(pfc::fileTimeUtoW(config_.latestScrobbleChecked));
+	str << foobar2000_io::format_filetimestamp(pfc::fileTimeUtoW(config_.latestScrobbleChecked));
 	GetDlgItem(IDC_LAST_PULL_DATE).SetWindowTextW(CA2W(str));
 
 	OnChanged();

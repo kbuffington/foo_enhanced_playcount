@@ -22,7 +22,7 @@ PlaycountConfig::PlaycountConfig()
 	, CompareAlbumFields(true)
 	, delayScrobbleRetrieval(true)
 	, LastfmUsername(DefaultLastfmUsername)
-	, LruCacheSize(DefaultLruCacheSize)
+	, LruCacheSize(DefaultLruCacheSize) // this value is saved but ignored
 	, ArtistTfString(DefaultArtistTfString)
 	, AlbumTfString(DefaultAlbumTfString)
 	, TitleTfString(DefaultTitleTfString)
@@ -45,11 +45,6 @@ void PlaycountConfig::get_data_raw(stream_writer* p_stream, abort_callback& p_ab
 	p_stream->write_lendian_t(delayScrobbleRetrieval, p_abort);
 
 	p_stream->write_string(LastfmUsername, p_abort);
-	CacheSize = std::stoi(LruCacheSize.c_str());
-	if (CacheSize > 50) {
-		LruCacheSize = "50";
-		CacheSize = 50;
-	}
 	p_stream->write_string(LruCacheSize, p_abort);
 	p_stream->write_string(ArtistTfString, p_abort);
 	p_stream->write_string(AlbumTfString, p_abort);
@@ -74,7 +69,7 @@ void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_ab
 	p_stream->read_lendian_t(cfg.delayScrobbleRetrieval, p_abort);
 
 	p_stream->read_string(cfg.LastfmUsername, p_abort);
-	p_stream->read_string(cfg.LruCacheSize, p_abort);
+	p_stream->read_string(cfg.LruCacheSize, p_abort); // value is currently ignored and not displayed to the user
 	p_stream->read_string(cfg.ArtistTfString, p_abort);
 	p_stream->read_string(cfg.AlbumTfString, p_abort);
 	p_stream->read_string(cfg.TitleTfString, p_abort);
@@ -89,12 +84,7 @@ void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_ab
 		cfg.TitleTfString = DefaultTitleTfString;
 	}
 
-	if (version == 1 && std::stoi(cfg.LruCacheSize.c_str()) < 40) {
-		cfg.LruCacheSize = DefaultLruCacheSize; // increase default cache size
-		cfg.CacheSize = std::stoi(DefaultLruCacheSize);
-	} else {
-		cfg.CacheSize = std::stoi(cfg.LruCacheSize.c_str());
-	}
+	cfg.CacheSize = atoi(DefaultLruCacheSize); // always using default now
 	if (version < 3) {
 		cfg.earliestScrobbleChecked = 0;
 		cfg.latestScrobbleChecked = 0;

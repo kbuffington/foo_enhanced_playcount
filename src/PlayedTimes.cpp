@@ -430,7 +430,7 @@ namespace foo_enhanced_playcount {
 #endif
 				pfc::string8 lastPlayMsg;
 				if (lastPlay > 0) {
-					lastPlayMsg << " (since last known scrobble at " << format_filetimestamp::format_filetimestamp(lastPlay) << ")";
+					lastPlayMsg << " (since last known scrobble at " << foobar2000_io::format_filetimestamp(lastPlay) << ")";
 				}
 				FB2K_console_formatter() << time << "Found " << playTimes.size() << " scrobbles in last.fm" << lastPlayMsg << " of \"" << title << "\"";
 			}

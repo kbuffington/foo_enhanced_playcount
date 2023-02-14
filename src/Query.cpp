@@ -36,13 +36,6 @@ Query::Query(const char *method) {
 	url << lastfmApiBase << method;
 }
 
-pfc::string8 Query::getCacheSize() {
-	std::string cacheVals;
-	pfc::string8 sizeStr = std::to_string(pageCache.getCacheSize()).c_str();
-
-	return sizeStr;
-}
-
 int Query::setCacheSize(int requestedSize) {
 	if (requestedSize < 0) {
 		requestedSize = 0;
