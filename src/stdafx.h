@@ -11,10 +11,8 @@
 #include <mutex>
 #include <vector>
 
-//#include <nlohmann/json.hpp>
-//using json = nlohmann::json;
-//
-
+// https://stackoverflow.com/questions/4913922/possible-problems-with-nominmax-on-visual-c
+// these are needed to get rapidjson to work
 #define NOMINMAX
 namespace Gdiplus
 {
@@ -22,11 +20,5 @@ namespace Gdiplus
 	using std::max;
 };
 
-#include "resource.h"
 #include <foobar2000/helpers/foobar2000+atl.h>
-#include <foobar2000/helpers/atl-misc.h>
 #include <foobar2000/helpers/filetimetools.h>
-
-#include <ActivScp.h>
-#include <ComDef.h>
-#include <ShlObj.h>
