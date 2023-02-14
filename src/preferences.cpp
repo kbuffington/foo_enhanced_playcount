@@ -5,6 +5,8 @@
 #include "PlaycountConfig.h"
 #include "Bindings.h"
 #include "Query.h"
+#include <foobar2000/helpers/atl-misc.h>
+#include <foobar2000/SDK/coreDarkMode.h>
 
 namespace foo_enhanced_playcount {
 
@@ -50,6 +52,7 @@ public:
 
 
 private:
+	fb2k::CCoreDarkModeHooks m_hooks;
 	BOOL OnInitDialog(CWindow, LPARAM);
 	void OnEditChange(UINT uNotifyCode, int nID, CWindow wndCtl);
 	void OnClickedResetButton(UINT uNotifyCode, int nID, CWindow wndCtl);
@@ -66,6 +69,7 @@ private:
 
 BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lInitParam*/)
 {
+	m_hooks.AddDialogWithControls(*this);
 	bindings_.Bind(config_.EnableLastfmPlaycounts, m_hWnd, IDC_ENABLE_LASTFM_PLAYCOUNTS);
 	bindings_.Bind(config_.CompareAlbumFields, m_hWnd, IDC_COMPARE_ALBUM_FIELDS); 
 	bindings_.Bind(config_.IncrementLastfmWithPlaycount, m_hWnd, IDC_INCREMENT_WITH_PLAYCOUNT);
@@ -178,9 +182,8 @@ void PlaycountPreferencesDialog::OnEditChange(UINT uNotifyCode, int nID, CWindow
 t_uint32 PlaycountPreferencesDialog::get_state()
 {
 	t_uint32 state = preferences_state::resettable;
-	if (HasChanged())
-		state |= preferences_state::changed;
-	return state;
+	if (HasChanged()) state |= preferences_state::changed;
+	return state | preferences_state::dark_mode_supported;
 }
 
 void PlaycountPreferencesDialog::reset()

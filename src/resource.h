@@ -16,10 +16,9 @@
 #define IDC_AUTO_PULL_SCROBBLES         1024
 #define IDC_LAST_PULL_DATE              1025
 #define IDC_RESET_BUTTON                1026
-#define IDC_FIELD_MAPPINGS_LABEL        1027
 
 // Next default values for new objects
-// 
+//
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        104

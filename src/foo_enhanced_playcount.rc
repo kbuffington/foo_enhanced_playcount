@@ -25,18 +25,18 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE 
+1 TEXTINCLUDE
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE 
+2 TEXTINCLUDE
 BEGIN
     "#include ""afxres.h""\r\n"
     "\0"
 END
 
-3 TEXTINCLUDE 
+3 TEXTINCLUDE
 BEGIN
     "\r\n"
     "\0"
@@ -54,9 +54,9 @@ IDD_PREFERENCES DIALOGEX 0, 0, 332, 288
 STYLE DS_SETFONT | WS_CHILD
 FONT 8, "Microsoft Sans Serif", 400, 0, 0x0
 BEGIN
-    GROUPBOX        "",IDC_STATIC,16,18,299,210
+    GROUPBOX        "",IDC_STATIC,16,18,299,210,WS_CLIPSIBLINGS
     CONTROL         "Retrieve Last.fm Scrobbles",IDC_ENABLE_LASTFM_PLAYCOUNTS,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,21,18,95,8
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,21,18,97,8
     RTEXT           "Last.fm Username:",IDC_STATIC,29,36,59,8
     EDITTEXT        IDC_EPC_LASTFM_NAME,91,35,93,12,ES_AUTOHSCROLL
     CONTROL         "Automatically pull recent scrobbles",IDC_AUTO_PULL_SCROBBLES,
@@ -73,8 +73,7 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,29,137,102,10
     LTEXT           "Artist:",IDC_STATIC,34,170,41,8
     EDITTEXT        IDC_EPC_ARTIST_STRING,77,168,219,12,ES_AUTOHSCROLL
-    GROUPBOX        "",IDC_STATIC,26,157,281,62
-    LTEXT           "Field mappings",IDC_FIELD_MAPPINGS_LABEL,33,156,47,8
+    GROUPBOX        "Field mappings",IDC_STATIC,26,157,281,62
     LTEXT           "Album:",IDC_STATIC,34,185,41,8
     EDITTEXT        IDC_EPC_ALBUM_STRING,77,184,219,12,ES_AUTOHSCROLL
     LTEXT           "Title:",IDC_STATIC,34,202,41,8
@@ -125,4 +124,3 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-
