@@ -56,6 +56,7 @@ private:
 	BOOL OnInitDialog(CWindow, LPARAM);
 	void OnEditChange(UINT uNotifyCode, int nID, CWindow wndCtl);
 	void OnClickedResetButton(UINT uNotifyCode, int nID, CWindow wndCtl);
+	pfc::string8 GetHistoricalScrobbleText();
 	bool HasChanged() const;
 	void OnChanged();
 	void CreateTooltip(CToolTipCtrl, CWindow, int, LPCTSTR, LPCTSTR);
@@ -80,9 +81,7 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 	bindings_.Bind(config_.AlbumTfString, m_hWnd, IDC_EPC_ALBUM_STRING);
 	bindings_.Bind(config_.TitleTfString, m_hWnd, IDC_EPC_TITLE_STRING);
 	bindings_.Bind(config_.autoPullScrobbles, m_hWnd, IDC_AUTO_PULL_SCROBBLES);
-	pfc::string8 str = "Next historical scrobble pull from: ";
-	str << foobar2000_io::format_filetimestamp(pfc::fileTimeUtoW(config_.earliestScrobbleChecked));
-	GetDlgItem(IDC_LAST_PULL_DATE).SetWindowTextW(CA2W(str));
+	GetDlgItem(IDC_LAST_PULL_DATE).SetWindowTextW(CA2W(GetHistoricalScrobbleText()));
 	bindings_.FlowToControl();
 
 	CreateTooltip(tooltips[0], m_hWnd, IDC_ENABLE_LASTFM_PLAYCOUNTS,
@@ -203,12 +202,21 @@ void PlaycountPreferencesDialog::reset()
 
 void PlaycountPreferencesDialog::OnClickedResetButton(UINT uNotifyCode, int nID, CWindow wndCtl)
 {
-	config_.earliestScrobbleChecked = 0;
-	pfc::string8 str = "Next historical scrobble pull from: ";
-	str << foobar2000_io::format_filetimestamp(pfc::fileTimeUtoW(config_.latestScrobbleChecked));
-	GetDlgItem(IDC_LAST_PULL_DATE).SetWindowTextW(CA2W(str));
+	GetDlgItem(IDC_LAST_PULL_DATE).SetWindowTextW(CA2W(GetHistoricalScrobbleText()));
 
 	OnChanged();
+}
+
+pfc::string8 PlaycountPreferencesDialog::GetHistoricalScrobbleText() {
+	config_.earliestScrobbleChecked = 0;
+	pfc::string8 str = "Next historical scrobble pull from: ";
+	if (config_.latestScrobbleChecked == 0) {
+		str << "<current date && time>";
+	}
+	else {
+		str << foobar2000_io::format_filetimestamp(pfc::fileTimeUtoW(config_.latestScrobbleChecked));
+	}
+	return str;
 }
 
 void PlaycountPreferencesDialog::apply()

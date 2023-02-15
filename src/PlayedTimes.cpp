@@ -350,13 +350,14 @@ namespace foo_enhanced_playcount {
 							metadb_index_hash hash;
 							clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(library[i], hash);
 							record_t record = getRecord(hash);
+							// if we don't have any scrobbles OR last known scrobble was more than 1 minute before scrobble_time
 							if (!record.lastfmPlaytimes.size() ||
 								((fileTimeWtoU(record.lastfmPlaytimes.back()) - 60) < s.scrobble_time) &&
 								(s.scrobble_time - fileTimeWtoU(record.lastfmPlaytimes.back()) > 60)) {	// filtering for non-adjusted recorded scrobbles
 								handle_vec.push_back(library[i]);
 							}
 							else if (record.lastfmPlaytimes.size()) {
-								// we know about all scrobbles for this song
+								// we know about all scrobbles for this song so update earliest known scrobble time
 								updateSavedScrobbleTimes(fileTimeUtoW(s.scrobble_time), true);
 							}
 						}
