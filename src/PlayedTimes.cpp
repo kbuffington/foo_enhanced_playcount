@@ -77,7 +77,7 @@ namespace foo_enhanced_playcount {
 		static metadb_index_client_impl* g_ArtistIndex = new service_impl_single_t<metadb_index_client_impl>(strArtistPinTo, true);
 		static metadb_index_client_impl * g_clientObsolete = new service_impl_single_t<metadb_index_client_impl>(strObsoletePinTo);
 
-		PFC_ASSERT(guid == guid_foo_enhanced_playcount_index || 
+		PFC_ASSERT(guid == guid_foo_enhanced_playcount_index ||
 			guid == guid_foo_enhanced_playcount_obsolete ||
 			guid == guid_foo_enhanced_playcount_artist_index);
 
@@ -146,32 +146,6 @@ namespace foo_enhanced_playcount {
 		v.insert(v.begin(), buf, buf + numElements);
 	}
 
-	void convertHashes(void) 
-	{
-		pfc::list_t<metadb_index_hash> hashes;
-		if (dbNeedsConversion) {
-			theAPI()->get_all_hashes(guid_foo_enhanced_playcount_obsolete, hashes);
-			int count = 0;
-			for (size_t hashWalk = 0; hashWalk < hashes.get_count(); ++hashWalk) {
-				auto hash = hashes[hashWalk];
-				metadb_handle_list tracks;
-				theAPI()->get_ML_handles(guid_foo_enhanced_playcount_obsolete, hash, tracks);
-				if (tracks.get_count() > 0) {
-					record_t record = getRecord(hash, guid_foo_enhanced_playcount_obsolete);
-					if (record.numFoobarPlays > 0 || record.numLastfmPlays > 0) {
-						count++;
-						metadb_index_hash hash_new;
-						clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(tracks[0], hash_new);
-						setRecord(hash_new, record, guid_foo_enhanced_playcount_index);
-					}
-				}
-			}
-			theAPI()->remove(guid_foo_enhanced_playcount_obsolete);
-			theAPI()->erase_orphaned_data(guid_foo_enhanced_playcount_obsolete);
-			theAPI()->save_index_data(guid_foo_enhanced_playcount_index);
-			FB2K_console_formatter() << COMPONENT_NAME": Converted " << count << " records. Deleted old database.";
-		}
-	}
 
 	record_t getRecord(metadb_index_hash hash, const GUID index_guid) {
 		unsigned int buf[10004];
@@ -202,7 +176,7 @@ namespace foo_enhanced_playcount {
 				if (record.numFoobarPlays > 0)
 					copyTimestampsToVector((t_filetimestamp *)&buf[4], record.numFoobarPlays, record.foobarPlaytimes);
 				if (record.numLastfmPlays > 0)
-					copyTimestampsToVector((t_filetimestamp *)&buf[4] + record.numFoobarPlays, 
+					copyTimestampsToVector((t_filetimestamp *)&buf[4] + record.numFoobarPlays,
 							record.numLastfmPlays, record.lastfmPlaytimes);
 				break;
 		}
@@ -275,7 +249,7 @@ namespace foo_enhanced_playcount {
 		if (timestamp > Config.latestScrobbleChecked) {
 			Config.latestScrobbleChecked = timestamp;
 		}
-		// it seems possible to update the earliest date to a date much earlier than the range being scrobbled, 
+		// it seems possible to update the earliest date to a date much earlier than the range being scrobbled,
 		// so restrict updating this value to just tracks we don't need to pull from last.fm
 		if (updateEarliest && timestamp < Config.earliestScrobbleChecked || !Config.earliestScrobbleChecked) {
 			Config.earliestScrobbleChecked = timestamp;
@@ -303,14 +277,14 @@ namespace foo_enhanced_playcount {
 
 	class updateRecentScrobbles : public simple_thread_task {
 	public:
-		updateRecentScrobbles(const bool pullNew, metadb_handle_list_cref library) : 
+		updateRecentScrobbles(const bool pullNew, metadb_handle_list_cref library) :
 			newScrobbles(pullNew), allLibraryItems(library) {}
 
 		void run() override {
 			if (Config.EnableLastfmPlaycounts) {
 				pullingRecentScrobbles = true;
 				Lastfm* lfm = new Lastfm();
-				std::vector<scrobbleData> scrobble_vec = 
+				std::vector<scrobbleData> scrobble_vec =
 					lfm->queryRecentTracks(newScrobbles, newScrobbles ? Config.latestScrobbleChecked : Config.earliestScrobbleChecked);
 				std::vector<metadb_handle_ptr> handle_vec;
 
@@ -416,13 +390,13 @@ namespace foo_enhanced_playcount {
 			}
 			p_item->format_title(NULL, title, title_script, NULL);
 
-			if (artist.get_length() > 0 && title.get_length() > 0 && 
+			if (artist.get_length() > 0 && title.get_length() > 0 &&
 					info.get_length() > 29) {	// you can't scrobble a song less than 30 seconds long, so don't check to see if it was scrobbled.
 				pfc::string8 time;
 #ifdef DEBUG
 				t_filetimestamp start = filetimestamp_from_system_timer();
 #endif
-				
+
 				Lastfm *lfm = new Lastfm(hash, artist, album, title);
 				playTimes = lfm->queryByTrack(lastPlay);
 #ifdef DEBUG
@@ -533,7 +507,7 @@ namespace foo_enhanced_playcount {
 
 	class get_lastfm_scrobble : public simple_thread_task {
 	public:
-		get_lastfm_scrobble(const metadb_handle_ptr& handle, const bool refresh, const bool recent) : 
+		get_lastfm_scrobble(const metadb_handle_ptr& handle, const bool refresh, const bool recent) :
 			m_handle(handle), doRefresh(refresh), isRecent(recent) {}
 
 		void run() override
@@ -555,7 +529,7 @@ namespace foo_enhanced_playcount {
 
 				setRecord(hash, record);
 			}
-	
+
 			if (doRefresh && playTimes.size()) {
 				// non-threaded path
 				pfc::list_t<metadb_index_hash> hashes;
