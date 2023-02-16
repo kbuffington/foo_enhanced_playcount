@@ -256,25 +256,6 @@ namespace foo_enhanced_playcount {
 		}
 	}
 
-	template<typename T>
-	size_t RemoveDuplicatesKeepOrder(std::vector<T>& vec)
-	{
-		std::set<T> seen;
-
-		auto newEnd = std::remove_if(vec.begin(), vec.end(), [&seen](const T& value)
-			{
-				if (seen.find(value) != std::end(seen))
-					return true;
-
-				seen.insert(value);
-				return false;
-			});
-
-		vec.erase(newEnd, vec.end());
-
-		return vec.size();
-	}
-
 	class updateRecentScrobbles : public simple_thread_task {
 	public:
 		updateRecentScrobbles(const bool pullNew, metadb_handle_list_cref library) :
@@ -287,6 +268,7 @@ namespace foo_enhanced_playcount {
 				std::vector<scrobbleData> scrobble_vec =
 					lfm->queryRecentTracks(newScrobbles, newScrobbles ? Config.latestScrobbleChecked : Config.earliestScrobbleChecked);
 				std::vector<metadb_handle_ptr> handle_vec;
+				std::set<metadb_index_hash> seenHashes; // list of all hash values so we can skip duplicates
 
 #ifdef DEBUG
 				t_filetimestamp start = filetimestamp_from_system_timer();
@@ -323,21 +305,24 @@ namespace foo_enhanced_playcount {
 						for (size_t i = 0; i < library.get_count(); i++) {
 							metadb_index_hash hash;
 							clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(library[i], hash);
-							record_t record = getRecord(hash);
-							// if we don't have any scrobbles OR last known scrobble was more than 1 minute before scrobble_time
-							if (!record.lastfmPlaytimes.size() ||
-								((fileTimeWtoU(record.lastfmPlaytimes.back()) - 60) < s.scrobble_time) &&
-								(s.scrobble_time - fileTimeWtoU(record.lastfmPlaytimes.back()) > 60)) {	// filtering for non-adjusted recorded scrobbles
-								handle_vec.push_back(library[i]);
-							}
-							else if (record.lastfmPlaytimes.size()) {
-								// we know about all scrobbles for this song so update earliest known scrobble time
-								updateSavedScrobbleTimes(fileTimeUtoW(s.scrobble_time), true);
+							// have we seen this hash yet?
+							if (seenHashes.find(hash) == std::end(seenHashes)) {
+								seenHashes.insert(hash);
+
+								record_t record = getRecord(hash);
+								if ((!record.lastfmPlaytimes.size() || // if we don't have any scrobbles OR last known scrobble was more than 1 minute before scrobble_time
+									(fileTimeWtoU(record.lastfmPlaytimes.back()) - 60) < s.scrobble_time) &&
+									(s.scrobble_time - fileTimeWtoU(record.lastfmPlaytimes.back()) > 60)) {	// filtering for non-adjusted recorded scrobbles
+									handle_vec.push_back(library[i]);
+								}
+								else if (record.lastfmPlaytimes.size()) {
+									// we know about all scrobbles for this song so update earliest known scrobble time
+									updateSavedScrobbleTimes(fileTimeUtoW(s.scrobble_time), true);
+								}
 							}
 						}
 					}
 				}
-				RemoveDuplicatesKeepOrder(handle_vec);
 #ifdef DEBUG
 				t_filetimestamp end = filetimestamp_from_system_timer();
 				FB2K_console_formatter() << "Calculating scrobbles to pull: " << (end - start) / 10000 << "ms";
