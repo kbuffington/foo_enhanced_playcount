@@ -72,7 +72,7 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 {
 	m_hooks.AddDialogWithControls(*this);
 	bindings_.Bind(config_.EnableLastfmPlaycounts, m_hWnd, IDC_ENABLE_LASTFM_PLAYCOUNTS);
-	bindings_.Bind(config_.CompareAlbumFields, m_hWnd, IDC_COMPARE_ALBUM_FIELDS); 
+	bindings_.Bind(config_.CompareAlbumFields, m_hWnd, IDC_COMPARE_ALBUM_FIELDS);
 	bindings_.Bind(config_.IncrementLastfmWithPlaycount, m_hWnd, IDC_INCREMENT_WITH_PLAYCOUNT);
 	bindings_.Bind(config_.RemoveDuplicateLastfmScrobbles, m_hWnd, IDC_REMOVE_DUPLICATE_SCROBBLES);
 	bindings_.Bind(config_.delayScrobbleRetrieval, m_hWnd, IDC_DELAY_PULLING_SCROBBLES);
@@ -110,7 +110,7 @@ BOOL PlaycountPreferencesDialog::OnInitDialog(CWindow /*wndFocus*/, LPARAM /*lIn
 		L"If you scrobble a lot from poorly tagged sources such as Spotify or Youtube you might want "
 		L"to disable this setting."
 	);
-	CreateTooltip(tooltips[2], m_hWnd, IDC_INCREMENT_WITH_PLAYCOUNT, 
+	CreateTooltip(tooltips[2], m_hWnd, IDC_INCREMENT_WITH_PLAYCOUNT,
 		L"Increment last.fm playcount with %play_count%",
 		L"\nThe value of %play_count% automatically increments after 60 seconds of playtime, "
 		L"while scrobbling the current song only happens after the song is played. Because this "
@@ -202,20 +202,15 @@ void PlaycountPreferencesDialog::reset()
 
 void PlaycountPreferencesDialog::OnClickedResetButton(UINT uNotifyCode, int nID, CWindow wndCtl)
 {
+	config_.earliestScrobbleChecked = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	GetDlgItem(IDC_LAST_PULL_DATE).SetWindowTextW(CA2W(GetHistoricalScrobbleText()));
 
 	OnChanged();
 }
 
 pfc::string8 PlaycountPreferencesDialog::GetHistoricalScrobbleText() {
-	config_.earliestScrobbleChecked = 0;
 	pfc::string8 str = "Next historical scrobble pull from: ";
-	if (config_.latestScrobbleChecked == 0) {
-		str << "<current date && time>";
-	}
-	else {
-		str << foobar2000_io::format_filetimestamp(pfc::fileTimeUtoW(config_.latestScrobbleChecked));
-	}
+	str << foobar2000_io::format_filetimestamp(pfc::fileTimeUtoW(config_.earliestScrobbleChecked));
 	return str;
 }
 
@@ -236,14 +231,14 @@ void PlaycountPreferencesDialog::apply()
 	}
 
 	bindings_.FlowToVar();
-	
+
 	// Cache size used to be an option, now pinning at 50. Will be removed shortly
 	prefQ->setCacheSize(50);
 
 	artist_script.release();
 	album_script.release();
 	title_script.release();
-	
+
 	OnChanged();
 
 	PlaycountConfigNotify::NotifyChanged();
