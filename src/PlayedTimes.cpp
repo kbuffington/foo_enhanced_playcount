@@ -310,8 +310,8 @@ namespace foo_enhanced_playcount {
 								seenHashes.insert(hash);
 
 								record_t record = getRecord(hash);
-								if ((!record.lastfmPlaytimes.size() || // if we don't have any scrobbles OR last known scrobble was more than 1 minute before scrobble_time
-									(fileTimeWtoU(record.lastfmPlaytimes.back()) - 60) < s.scrobble_time) &&
+								if (!record.lastfmPlaytimes.size() || // if we don't have any scrobbles OR last known scrobble was more than 1 minute before scrobble_time
+									((fileTimeWtoU(record.lastfmPlaytimes.back()) - 60) < s.scrobble_time) &&
 									(s.scrobble_time - fileTimeWtoU(record.lastfmPlaytimes.back()) > 60)) {	// filtering for non-adjusted recorded scrobbles
 									handle_vec.push_back(library[i]);
 								}
