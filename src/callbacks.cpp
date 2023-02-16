@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "globals.h"
 #include "foobar2000/SDK/library_callbacks.h"
+#include "foobar2000/SDK/system_time_keeper.h"
 #include "PlayedTimes.h"
 
 class myLibraryCallbacks : public library_callback_v2 {
