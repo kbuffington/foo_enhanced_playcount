@@ -249,7 +249,7 @@ copy /Y "$(TargetPath)" "D:\Source\foobar2000-2.0x64_portable\profile\user-compo
     <ClCompile Include="Bindings.cpp" />
     <ClCompile Include="contextmenu.cpp" />
     <ClCompile Include="fields.cpp" />
-    <ClCompile Include="initquit.cpp" />
+    <ClCompile Include="callbacks.cpp" />
     <ClCompile Include="lastfm.cpp" />
     <ClCompile Include="LruCache.cpp" />
     <ClCompile Include="main.cpp" />
