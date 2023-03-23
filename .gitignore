@@ -7,6 +7,7 @@ Debug FB2K/
 # Edit at https://www.gitignore.io/?templates=visualstudio
 
 .vscode/
+.editorconfig
 
 ### VisualStudio ###
 ## Ignore Visual Studio temporary files, build results, and
