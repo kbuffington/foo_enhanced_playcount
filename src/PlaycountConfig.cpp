@@ -93,16 +93,16 @@ void SetData(PlaycountConfig& cfg, stream_reader* p_stream, abort_callback& p_ab
 		cfg.UnusedBool3 = true;
 		cfg.UnusedBool4 = true;
 	} else {
-		//t_filetimestamp t;
-		//p_stream->read_lendian_t(t, p_abort);
 		//cfg.latestScrobbleChecked = 1563892995;
 		p_stream->read_lendian_t(cfg.latestScrobbleChecked, p_abort);
-		//p_stream->read_lendian_t(t, p_abort);
 		p_stream->read_lendian_t(cfg.earliestScrobbleChecked, p_abort);
 		p_stream->read_lendian_t(cfg.autoPullScrobbles, p_abort);
 		p_stream->read_lendian_t(cfg.UnusedBool2, p_abort);
 		p_stream->read_lendian_t(cfg.UnusedBool3, p_abort);
 		p_stream->read_lendian_t(cfg.UnusedBool4, p_abort);
+	}
+	if (cfg.earliestScrobbleChecked == 0) {
+		cfg.earliestScrobbleChecked = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()); // set to current time
 	}
 }
 
