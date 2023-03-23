@@ -3,7 +3,11 @@
 #include "globals.h"
 
 namespace foo_enhanced_playcount {
-	void convertHashes(void);
+	void foobarQuitting(void);
+	void addMetadbIndexes(void);
+	static metadb_index_manager::ptr g_cachedAPI;
+	// Retain pinned data for four weeks if there are no matching items in library
+	static const t_filetimestamp retentionPeriod = system_time_periods::week * 4;
 
 #define kCurrRecordVersion   1
 	struct record_t {
