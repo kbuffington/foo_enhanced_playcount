@@ -221,7 +221,8 @@ bool Lastfm::parseTrackJson(const pfc::string8 buffer, std::vector<t_filetimesta
 									* are listed most recent first so we have to subtract.
 									*/
 								lastRecordedTime = time;
-								playTimes.insert(playTimes.begin(), fileTimeUtoW(time + 60));	// Add 1 minute to start time to match foobar's timestamp
+								// Add 61 seconds to start time to match foobar's timestamp. This used to be 60s, but something changed in either last.fm or foobar, and it's been off by 1 second for a while
+								playTimes.insert(playTimes.begin(), fileTimeUtoW(time + 61));	
 #ifdef DEBUG
 							} else {
 								FB2K_console_formatter() << "Skipping double scrobble: " << i << " - " << time << " - " << lastRecordedTime;

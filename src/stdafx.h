@@ -10,6 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <vector>
+#include <chrono>
 
 // https://stackoverflow.com/questions/4913922/possible-problems-with-nominmax-on-visual-c
 // these are needed to get rapidjson to work

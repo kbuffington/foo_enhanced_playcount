@@ -390,6 +390,8 @@ namespace foo_enhanced_playcount
 	}
 
 	titleformat_object::ptr first_and_last_played_script;
+	titleformat_object::ptr last_played_script;
+
 
 	class my_playback_statistics_collector : public playback_statistics_collector {
 	public:
@@ -619,6 +621,39 @@ namespace foo_enhanced_playcount
 		}
 	}
 
+	bool verifyFirstLastPlayed(metadb_handle_ptr metadb_handle, record_t* record) {
+		t_filetimestamp fp = 0, lp = 0, current_fp = 0, current_lp = 0;
+		if (first_and_last_played_script.is_empty()) {
+			static_api_ptr_t<titleformat_compiler>()->compile_safe_ex(first_and_last_played_script, "%first_played%~%last_played%");
+		}
+		pfc::string_formatter p_out;
+
+		metadb_handle->format_title(NULL, p_out, first_and_last_played_script, NULL);
+		t_size divider = p_out.find_first('~');
+		char firstPlayed[25], lastPlayed[25];
+		strncpy_s(firstPlayed, p_out.toString(), divider);
+		strcpy_s(lastPlayed, p_out.toString() + divider + 1);
+
+		if (strcmp(firstPlayed, "N/A") && strcmp(firstPlayed, "?")) {
+			fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
+			lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
+
+			current_fp = record->foobarPlaytimes.front();
+			current_lp = record->foobarPlaytimes.back();
+			if (fp < current_fp) {
+				record->foobarPlaytimes.insert(record->foobarPlaytimes.begin(), fp);
+			}
+			if (lp > current_lp) {
+				record->foobarPlaytimes.push_back(lp);
+			}
+			if (record->foobarPlaytimes.size() != record->numFoobarPlays) {
+				record->numFoobarPlays = (unsigned int)record->foobarPlaytimes.size();
+				return true;
+			}
+		}
+		return false;
+	}
+
 	void GetLastfmScrobblesThreaded(metadb_handle_list_cref items, bool always_show_popup)
 	{
 		int threaded_process_flags = threaded_process::flag_show_progress | threaded_process::flag_show_delayed | threaded_process::flag_show_item;
@@ -680,12 +715,21 @@ namespace foo_enhanced_playcount
 		void on_playback_dynamic_info_track(const file_info &p_info) {}
 		void on_playback_time(double p_time) {
 			m_elapsed++;
-			if (m_elapsed == 2 && config.EnableLastfmPlaycounts && config.delayScrobbleRetrieval) {
-				metadb_handle_ptr metadb;
-				if (playback_control::get()->get_now_playing(metadb)) {
+			metadb_handle_ptr metadb;
+			if (m_elapsed == 2 && playback_control::get()->get_now_playing(metadb)) {
+				metadb_index_hash hash;
+				clientByGUID(guid_foo_enhanced_playcount_index)->hashHandle(metadb, hash);
+				record_t record = getRecord(hash);
+				bool needsWrite = verifyFirstLastPlayed(metadb, &record);
+				if (needsWrite) {
+					setRecord(hash, record);
+				}
+
+				if (config.EnableLastfmPlaycounts && config.delayScrobbleRetrieval) {
 					pull_scrobbles(metadb);
 				}
 			}
+			
 		}
 		void on_volume_change(float p_new_val) {}
 
