@@ -638,17 +638,19 @@ namespace foo_enhanced_playcount
 			fp = foobar2000_io::filetimestamp_from_string(firstPlayed);
 			lp = foobar2000_io::filetimestamp_from_string(lastPlayed);
 
-			current_fp = record->foobarPlaytimes.front();
-			current_lp = record->foobarPlaytimes.back();
-			if (fp < current_fp) {
-				record->foobarPlaytimes.insert(record->foobarPlaytimes.begin(), fp);
-			}
-			if (lp > current_lp) {
-				record->foobarPlaytimes.push_back(lp);
-			}
-			if (record->foobarPlaytimes.size() != record->numFoobarPlays) {
-				record->numFoobarPlays = (unsigned int)record->foobarPlaytimes.size();
-				return true;
+			if (record->foobarPlaytimes.size()) {
+				current_fp = record->foobarPlaytimes.front();
+				current_lp = record->foobarPlaytimes.back();
+				if (fp < current_fp) {
+					record->foobarPlaytimes.insert(record->foobarPlaytimes.begin(), fp);
+				}
+				if (lp > current_lp) {
+					record->foobarPlaytimes.push_back(lp);
+				}
+				if (record->foobarPlaytimes.size() != record->numFoobarPlays) {
+					record->numFoobarPlays = (unsigned int)record->foobarPlaytimes.size();
+					return true;
+				}
 			}
 		}
 		return false;
